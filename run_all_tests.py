@@ -3,9 +3,14 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "colorama>=0.4.6",
+#     "numpy>=1.24.0",
+#     "opencv-python>=4.8.0",
+#     "pandas>=2.0.0",
+#     "pillow>=10.0.0",
 #     "pydantic>=2.0.0",
 #     "pytest>=7.4.0",
 #     "pytest-cov>=4.1.0",
+#     "python-docx>=0.8.11",
 # ]
 # ///
 
@@ -67,7 +72,7 @@ def run_tests(test_type: str = "all") -> int:
         cmd = ["python", "-m", "pytest", "tests/test_form_classes.py", "-v", "--tb=short", "--disable-warnings"]
         description = "📝 Running form tests"
     elif test_type == "coverage":
-        cmd.extend(["--cov=src", "--cov-report=term-missing"])
+        cmd.extend(["--cov=xfund_generator", "--cov-report=term-missing"])
         description = "📊 Running tests with coverage"
     else:
         description = "🧪 Running all tests"

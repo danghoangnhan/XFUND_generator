@@ -7,8 +7,8 @@ import tempfile
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
-from src import utils, docx_utils, renderer, augmentations
-from src.models import GeneratorConfig, get_default_config
+from xfund_generator import utils, docx_utils, renderer, augmentations
+from xfund_generator.models import GeneratorConfig, get_default_config
 
 
 class TestUtilities:

@@ -14,12 +14,7 @@ import numpy as np
 from PIL import Image, ImageFont
 import cv2
 
-# Import Pydantic models - use relative import to avoid circular imports
-try:
-    from .models import BBoxModel, DataRecord, GeneratorConfig, XFUNDEntity, XFUNDAnnotation
-except ImportError:
-    # Fallback for when running as standalone script
-    from models import BBoxModel, DataRecord, GeneratorConfig, XFUNDEntity, XFUNDAnnotation
+from .models import BBoxModel, DataRecord, GeneratorConfig, XFUNDEntity, XFUNDAnnotation
 
 
 # Legacy BBox class for backward compatibility

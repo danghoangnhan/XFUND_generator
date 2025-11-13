@@ -10,12 +10,11 @@ import tempfile
 import json
 from unittest.mock import MagicMock
 
-from src.models import GeneratorConfig, DataRecord, BBoxModel, XFUNDEntity
-from src.form.base import Word, BaseAnnotation
-from src.form.xfund import XFUNDAnnotation, XFUNDDataset
-from src.form.funsd import FUNSDAnnotation, FUNSDDataset
-from src.form.wildreceipt import WildReceiptAnnotation, WildReceiptDataset
-
+from xfund_generator.models import GeneratorConfig, DataRecord, BBoxModel, XFUNDEntity
+from xfund_generator.form import Word, BaseAnnotation
+from xfund_generator.form import XFUNDAnnotation, XFUNDDataset
+from xfund_generator.form import FUNSDAnnotation, FUNSDDataset
+from xfund_generator.form import WildReceiptAnnotation, WildReceiptDataset
 
 @pytest.fixture
 def temp_dir():

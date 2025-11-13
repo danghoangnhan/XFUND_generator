@@ -8,16 +8,16 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from src.form.base import Word
-from src.form.xfund import XFUNDAnnotation, XFUNDDataset
+from xfund_generator.form import Word
+from xfund_generator.form import XFUNDAnnotation, XFUNDDataset
 # Conditional import - may not exist in all setups
 try:
-    from src.xfund_form_integration import XFUNDFormGenerator
+    from xfund_generator.xfund_form_integration import XFUNDFormGenerator
     XFUND_INTEGRATION_AVAILABLE = True
 except ImportError:
     XFUND_INTEGRATION_AVAILABLE = False
     XFUNDFormGenerator = None
-from src.models import GeneratorConfig, DataRecord
+from xfund_generator.models import GeneratorConfig, DataRecord
 
 
 class TestXFUNDFormIntegration:
@@ -303,7 +303,7 @@ class TestFormGenerationPipeline:
     @pytest.mark.forms
     def test_configuration_validation_integration(self):
         """Test that configuration validation works in integration."""
-        from src.models import validate_config_file
+        from xfund_generator.models import validate_config_file
         
         # Test with valid config data
         valid_config = {

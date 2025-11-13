@@ -34,7 +34,7 @@ echo "🔧 ADVANCED: Direct pytest"
 echo "   python -m pytest tests/ -v              # All tests"
 echo "   python -m pytest -m 'not slow' -v       # Quick tests"
 echo "   python -m pytest -m 'pydantic' -v       # Pydantic tests"
-echo "   python -m pytest --cov=src tests/       # With coverage"
+echo "   python -m pytest --cov=xfund_generator tests/       # With coverage"
 echo ""
 
 echo "📚 Documentation:"

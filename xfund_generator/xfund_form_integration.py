@@ -11,10 +11,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from models import DataRecord, BBoxModel, GeneratorConfig
-from form import XFUNDAnnotation, XFUNDDataset, Word
-from docx_utils import process_docx_template
-from utils import ensure_dir_exists
+from .models import DataRecord, BBoxModel, GeneratorConfig
+from .form import XFUNDAnnotation, XFUNDDataset, Word
+from .docx_utils import process_docx_template
+from .utils import ensure_dir_exists
 
 logger = logging.getLogger(__name__)
 
@@ -411,7 +411,7 @@ def demo_xfund_form_generation():
     print("🎯 XFUND Form Generation Demo\n")
     
     # Sample configuration
-    from models import get_default_config
+    from .models import get_default_config
     config = get_default_config()
     config.output_dir = "output/xfund_forms"
     

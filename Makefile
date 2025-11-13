@@ -76,7 +76,7 @@ test-generator:
 
 test-coverage:
 	@echo "📊 Running tests with coverage..."
-	python -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=html --tb=short --disable-warnings
+	python -m pytest tests/ -v --cov=xfund_generator --cov-report=term-missing --cov-report=html --tb=short --disable-warnings
 
 test-debug:
 	@echo "🐛 Running tests in debug mode..."
@@ -101,4 +101,4 @@ lint:
 	flake8 src/ tests/
 
 test-coverage:
-	pytest tests/ --cov=src/ --cov-report=html
+	pytest tests/ --cov=xfund_generator/ --cov-report=html

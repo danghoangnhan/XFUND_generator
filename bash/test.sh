@@ -46,7 +46,7 @@ else
             ;;
         "coverage")
             echo -e "${YELLOW}Running tests with coverage...${NC}"
-            python -m pytest tests/ -v --cov=src --cov-report=term-missing --tb=short --disable-warnings
+            python -m pytest tests/ -v --cov=xfund_generator --cov-report=term-missing --tb=short --disable-warnings
             ;;
         "debug")
             echo -e "${YELLOW}Running tests in debug mode...${NC}"

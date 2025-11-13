@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 from pydantic import ValidationError
 
-from src.models import (
+from xfund_generator.models import (
     GeneratorConfig, DataRecord, BBoxModel, XFUNDEntity, XFUNDAnnotation,
     DocumentType, AugmentationDifficulty, get_default_config, validate_config_file,
     TemplateValidationResult

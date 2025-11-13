@@ -16,28 +16,25 @@ import numpy as np
 from PIL import Image
 import cv2
 
-# Add src to Python path for imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from models import (
+from .models import (
     GeneratorConfig, DataRecord, XFUNDAnnotation, GenerationResult,
     DocumentType, AugmentationDifficulty, get_default_config
 )
-from utils import (
+from .utils import (
     load_csv_data, generate_unique_id, save_xfund_annotation,
     ensure_dir_exists, validate_image_size, load_csv_data_as_models,
     load_config_with_validation, save_xfund_annotation_pydantic
 )
-from docx_utils import (
+from .docx_utils import (
     process_docx_template, check_libreoffice_installed,
     validate_docx_template
 )
-from renderer import WordRenderer, create_sample_layout
-from augmentations import (
+from .renderer import WordRenderer, create_sample_layout
+from .augmentations import (
     DocumentAugmenter, create_augmentation_config,
     validate_augmentation_quality
 )
-from xfund_form_integration import XFUNDFormGenerator
+from .xfund_form_integration import XFUNDFormGenerator
 
 # Configure logging
 logging.basicConfig(

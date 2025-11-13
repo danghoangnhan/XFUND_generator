@@ -6,10 +6,10 @@ import pytest
 import json
 from unittest.mock import patch
 
-from src.form.base import BaseAnnotation, BaseDataset, Word, LabelType
-from src.form.xfund import XFUNDAnnotation, XFUNDDataset
-from src.form.funsd import FUNSDAnnotation, FUNSDDataset
-from src.form.wildreceipt import WildReceiptAnnotation, WildReceiptDataset
+from xfund_generator.form import BaseAnnotation, BaseDataset, Word, LabelType
+from xfund_generator.form import XFUNDAnnotation, XFUNDDataset
+from xfund_generator.form import FUNSDAnnotation, FUNSDDataset
+from xfund_generator.form import WildReceiptAnnotation, WildReceiptDataset
 
 
 class TestBaseClasses:

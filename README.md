@@ -36,8 +36,8 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```python
-from src.models import GeneratorConfig
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig
+from xfund_generator.generate_dataset import XFUNDGenerator
 
 # Create validated configuration
 config = GeneratorConfig(
@@ -56,9 +56,9 @@ print(f"Generated {result.generated_entries} entries")
 ### Form Classes with Unified API
 
 ```python
-from src.form.xfund import XFUNDDataset
-from src.form.funsd import FUNSDDataset
-from src.form.wildreceipt import WildReceiptDataset
+from xfund_generator.form.xfund import XFUNDDataset
+from xfund_generator.form.funsd import FUNSDDataset
+from xfund_generator.form.wildreceipt import WildReceiptDataset
 
 # All formats use the same unified API
 xfund_dataset = XFUNDDataset(image_path="image.png")
@@ -79,23 +79,25 @@ def export_dataset(dataset):
 
 ```bash
 # Generate dataset with default config
-python src/generate_dataset.py
+python -m xfund_generator.generate_dataset
 
 # Use example configuration
-python src/generate_dataset.py --config config/example_config.json
+python -m xfund_generator.generate_dataset --config config/example_config.json
 
 # Validate setup only
-python src/generate_dataset.py --config config/example_config.json --validate-only
+python -m xfund_generator.generate_dataset --config config/example_config.json --validate-only
 ```
 
 ## 📁 Project Structure
 
 ```
 XFUND_generator/
-├── src/                          # Core source code
+├── xfund_generator/              # Core source code package
+│   ├── __init__.py               # Package initialization and exports
 │   ├── models.py                 # Pydantic v2 models for validation
 │   ├── generate_dataset.py       # Main dataset generation
 │   ├── form/                     # Form classes with OOP inheritance
+│   │   ├── __init__.py          # Form package initialization
 │   │   ├── base.py              # BaseDataset with unified to_json()
 │   │   ├── xfund.py             # XFUND format implementation
 │   │   ├── funsd.py             # FUNSD format implementation
@@ -165,7 +167,7 @@ See `config/example_config.json` for a complete configuration example:
 The project features comprehensive Pydantic v2 integration:
 
 ```python
-from src.models import BBoxModel, DataRecord, XFUNDEntity, TemplateValidationResult
+from xfund_generator.models import BBoxModel, DataRecord, XFUNDEntity, TemplateValidationResult
 
 # Validated bounding box with computed properties  
 bbox = BBoxModel(x1=10, y1=20, x2=100, y2=80)
@@ -179,8 +181,8 @@ record = DataRecord(
 )
 
 # Validated form annotation with automatic validation
-from src.form.base import Word
-from src.form.xfund import XFUNDAnnotation
+from xfund_generator.form.base import Word
+from xfund_generator.form.xfund import XFUNDAnnotation
 
 annotation = XFUNDAnnotation(
     id=0,
@@ -234,7 +236,7 @@ make help                                # Show all make targets
 python -m pytest tests/ -v              # All tests
 python -m pytest -m "not slow" -v       # Quick tests
 python -m pytest tests/test_pydantic_models.py  # Specific file
-python -m pytest --cov=src tests/       # With coverage
+python -m pytest --cov=xfund_generator tests/       # With coverage
 ```
 
 ### 📋 Quick Reference
@@ -350,7 +352,7 @@ All formats use the same `to_json()` method but produce format-specific output:
 ### Custom Augmentations
 
 ```python
-from src.augmentations import DocumentAugmenter
+from xfund_generator.augmentations import DocumentAugmenter
 
 augmenter = DocumentAugmenter(
     brightness_range=(0.7, 1.3),
@@ -362,7 +364,7 @@ augmenter = DocumentAugmenter(
 ### Quality Validation
 
 ```python
-from src.utils import validate_annotation_quality
+from xfund_generator.utils import validate_annotation_quality
 
 issues = validate_annotation_quality(annotation)
 if issues:
