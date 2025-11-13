@@ -160,21 +160,6 @@ See `config/example_config.json` for a complete configuration example:
 - `hard` - Strong augmentations (perspective, distortion)
 - `extreme` - Very aggressive augmentations
 
-## 📊 OCR Evaluation Tools
-
-Comprehensive OCR model evaluation with precision, recall, and F1 metrics:
-
-```bash
-# Analyze OCR results
-python analyze_ocr_results.py --excel-file ocr_results.xlsx
-
-# Calculate R1, precision, recall for 6 categories
-python calculate_r1_precision_recall.py --excel-file ocr_results.xlsx
-
-# Show clean summary
-python show_ocr_summary.py
-```
-
 ## 🛡️ Type Safety with Pydantic v2
 
 The project features comprehensive Pydantic v2 integration:
@@ -211,56 +196,6 @@ validation_result = TemplateValidationResult.create_success(
     template_path="template.docx",
     message="Template validated successfully"
 )
-```
-
-## 🏗️ Architecture: OOP Inheritance & Template Method Pattern
-
-Clean, extensible architecture using object-oriented design principles:
-
-```python
-from src.form.base import BaseDataset
-
-# All form classes inherit from BaseDataset
-class CustomFormatDataset(BaseDataset):
-    def _format_annotation_for_export(self, annotation) -> dict:
-        """Override to customize annotation format."""
-        base_format = super()._format_annotation_for_export(annotation)
-        base_format["custom_field"] = annotation.custom_data
-        return base_format
-
-# Polymorphic usage - same API for all formats
-datasets = [XFUNDDataset(), FUNSDDataset(), CustomFormatDataset()]
-for dataset in datasets:
-    json_output = dataset.to_json()  # Unified interface!
-```
-
-### Benefits of This Architecture:
-
-- **DRY Principle**: No code duplication across format implementations
-- **Polymorphism**: Same interface works with all annotation formats  
-- **Extensibility**: Add new formats with minimal code changes
-- **Maintainability**: Changes to core logic automatically apply to all formats
-- **Type Safety**: Full Pydantic validation throughout the inheritance hierarchy
-
-## 📚 Examples & Demos
-
-Run the included demo scripts to see the features in action:
-
-```bash
-# Basic Pydantic functionality
-python demo_pydantic_integration.py
-
-# Configuration examples
-python pydantic_examples.py
-
-# Complete feature overview
-python pydantic_summary.py
-
-# OOP inheritance benefits demonstration
-python demo_inheritance_benefits.py
-
-# Form integration with XFUND generation
-python run_extraction_examples.py
 ```
 
 ## 🧪 Testing
@@ -340,17 +275,6 @@ cat COMPLETE_TEST_GUIDE.md
 - **Better Error Messages**: Comprehensive validation error reporting
 - **Performance**: Improved validation speed and memory usage
 
-### 2. OOP Inheritance Refactoring  
-- **Unified API**: Single `to_json()` method works across all annotation formats
-- **Template Method Pattern**: Clean separation between algorithm and format-specific customization
-- **Code Reduction**: ~60% less code duplication across form classes
-- **Polymorphism**: Same interface works with XFUND, FUNSD, and WildReceipt formats
-
-### 3. Form Classes Architecture
-- **Extensible Design**: Easy to add new annotation formats
-- **SOLID Principles**: Following Single Responsibility and Open/Closed principles
-- **Type-Safe Polymorphism**: No more conditional logic for different formats
-- **Maintainable**: Changes to core logic automatically benefit all formats
 
 ## �🎯 Output Format
 
@@ -461,21 +385,6 @@ config = GeneratorConfig(
 - LibreOffice (for DOCX to PDF conversion)
 - Required Python packages (see `requirements.txt`)
 
-### Core Dependencies
-
-- `pydantic>=2.0.0` - Type validation and serialization (v2 features required)
-- `pillow>=10.0.0` - Image processing
-- `opencv-python>=4.8.0` - Computer vision operations
-- `pandas>=2.0.0` - Data handling
-- `numpy>=1.24.0` - Numerical operations
-- `python-docx>=0.8.11` - DOCX template processing
-
-### Optional Dependencies
-
-- `torch>=1.9.0` - For BERT-based evaluation
-- `transformers>=4.21.0` - Language models
-- `sentence-transformers>=2.2.0` - Semantic evaluation
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -485,9 +394,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [XFUND Dataset](https://github.com/doc-analysis/XFUND) - Original XFUND dataset
 - [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - OCR toolkit
 - [LayoutLMv3](https://github.com/microsoft/unilm/tree/master/layoutlmv3) - Document AI model
-
-## 📞 Support
-
-- 📫 **Issues**: [GitHub Issues](https://github.com/danghoangnhan/XFUND_generator/issues)
-- 📚 **Documentation**: See `docs/` directory
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/danghoangnhan/XFUND_generator/discussions)
