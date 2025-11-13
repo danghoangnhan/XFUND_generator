@@ -1,0 +1,17 @@
+{
+  "templates_dir": "data/templates_docx",
+  "csv_path": "data/csv/data.csv",
+  "output_dir": "output",
+  "fonts_dir": "fonts/handwritten_fonts",
+  "document_type": "medical",
+  "enable_augmentations": true,
+  "augmentation_difficulty": "medium",
+  "image_dpi": 300,
+  "target_size": 1000,
+  "add_bbox_jitter": true,
+  "strict_validation": true,
+  "strict_augmentation": false,
+  "generate_debug_overlays": true,
+  "max_workers": 4,
+  "batch_size": 10
+}
