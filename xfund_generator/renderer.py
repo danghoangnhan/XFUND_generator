@@ -323,11 +323,6 @@ class WordRenderer:
             height = char_height
             return BBox(0, 0, width, height)
 
-
-# Alias for backwards compatibility
-DocumentRenderer = WordRenderer
-
-
 def generate_layout_from_template(
     template_analysis: dict[str, Any],
     image_size: tuple[int, int],

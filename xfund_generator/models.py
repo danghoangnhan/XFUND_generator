@@ -10,9 +10,6 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-# Type alias for annotation dictionaries (for backward compatibility)
-AnnotationDict = dict[str, Any]
-
 
 class DocumentType(str, Enum):
     """Supported document types for generation."""
@@ -741,6 +738,6 @@ if __name__ == "__main__":
     print(config.model_dump_json(indent=2))
 
     # Example bbox creation
-    bbox = create_bbox_from_coords(10, 20, 100, 80)
+    bbox = BBoxModel(10, 20, 100, 80)
     print(f"\nBBox: {bbox.to_list()}")
     print(f"Area: {bbox.area()}")

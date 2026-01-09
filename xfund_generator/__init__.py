@@ -13,7 +13,7 @@ Features:
 """
 
 __version__ = "1.0.0"
-__author__ = "Tu Hung Jen"
+__author__ = "Daniel Tu"
 
 from .augmentations import DocumentAugmenter
 from .docx_utils import validate_docx_template
@@ -38,12 +38,11 @@ from .models import (
     AugmentationDifficulty,
     BBoxModel,
     DataRecord,
-    DocumentType,
     GeneratorConfig,
     TemplateValidationResult,
     XFUNDEntity,
 )
-from .renderer import DocumentRenderer
+from .renderer import WordRenderer
 from .utils import load_csv_data
 
 # Integration modules
@@ -59,7 +58,7 @@ __all__ = [
     "DataRecord",
     "XFUNDEntity",
     "TemplateValidationResult",
-    "DocumentType",
+    "WordRenderer",
     "AugmentationDifficulty",
     # Form classes
     "BaseDataset",
@@ -72,7 +71,7 @@ __all__ = [
     "WildReceiptAnnotation",
     # Core functionality
     "XFUNDGenerator",
-    "DocumentRenderer",
+    "WordRenderer",
     "DocumentAugmenter",
     "XFUNDFormGenerator",
     # Utilities
