@@ -233,8 +233,10 @@ class TestFormGenerationPipeline:
                 box=[10, 20, 150, 40],
                 text="Hospital Name:",
                 label="question",
-                words=[Word(box=[10, 20, 80, 40], text="Hospital"),
-                       Word(box=[85, 20, 150, 40], text="Name:")],
+                words=[
+                    Word(box=[10, 20, 80, 40], text="Hospital"),
+                    Word(box=[85, 20, 150, 40], text="Name:"),
+                ],
                 linking=[[1, 2]],
             ),
             XFUNDAnnotation(
@@ -242,8 +244,10 @@ class TestFormGenerationPipeline:
                 box=[160, 20, 350, 40],
                 text="General Hospital",
                 label="answer",
-                words=[Word(box=[160, 20, 250, 40], text="General"),
-                       Word(box=[255, 20, 350, 40], text="Hospital")],
+                words=[
+                    Word(box=[160, 20, 250, 40], text="General"),
+                    Word(box=[255, 20, 350, 40], text="Hospital"),
+                ],
             ),
         ]
 
