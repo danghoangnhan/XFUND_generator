@@ -10,6 +10,10 @@ from typing import Any, Optional, Union
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont
 
+from .models import (
+    AnnotationValidationResult,
+    validate_annotations as pydantic_validate_annotations,
+)
 from .utils import (
     BBox,
     load_layout_json,
@@ -234,73 +238,24 @@ class WordRenderer:
         self,
         annotations: list[dict[str, Any]],
         image_size: tuple[int, int],  # noqa: ARG002
-    ) -> dict[str, Any]:
+    ) -> AnnotationValidationResult:
         """
         Validate generated annotations for quality and consistency.
 
+        Uses Pydantic models for validation with proper type safety.
+
         Args:
             annotations: List of XFUND annotations
-            image_size: Image dimensions
+            image_size: Image dimensions (unused, kept for API compatibility)
 
         Returns:
-            Validation results dictionary
+            AnnotationValidationResult with validation status and statistics
         """
-        issues: list[str] = []
-        bbox_issues: list[str] = []
-
-        # Count words per label
-        label_counts: dict[str, int] = {}
-        for ann in annotations:
-            label = ann["label"]
-            label_counts[label] = label_counts.get(label, 0) + 1
-
-        # Validate individual annotations
-        for i, ann in enumerate(annotations):
-            # Check required fields
-            if not all(key in ann for key in ["text", "bbox", "label"]):
-                issues.append(f"Annotation {i}: Missing required fields")
-                continue
-
-            # Check bbox format
-            bbox = ann["bbox"]
-            if not isinstance(bbox, list) or len(bbox) != 4:
-                issues.append(f"Annotation {i}: Invalid bbox format")
-                continue
-
-            # Check bbox coordinates
-            x1, y1, x2, y2 = bbox
-            if x1 >= x2 or y1 >= y2:
-                issues.append(f"Annotation {i}: Invalid bbox coordinates {bbox}")
-
-            # Check bbox bounds (should be in 0-target_size range for XFUND)
-            if not all(0 <= coord <= self.target_size for coord in bbox):
-                issues.append(f"Annotation {i}: Bbox out of bounds {bbox}")
-
-            # Check empty text
-            if not ann["text"].strip():
-                issues.append(f"Annotation {i}: Empty text")
-
-        # Check for overlapping bboxes (potential issue)
-        for i, ann1 in enumerate(annotations):
-            for j, ann2 in enumerate(annotations[i + 1 :], i + 1):
-                bbox1 = BBox(*ann1["bbox"])
-                bbox2 = BBox(*ann2["bbox"])
-
-                # Calculate overlap
-                intersection_area = max(
-                    0, min(bbox1.x2, bbox2.x2) - max(bbox1.x1, bbox2.x1)
-                ) * max(0, min(bbox1.y2, bbox2.y2) - max(bbox1.y1, bbox2.y1))
-
-                if intersection_area > 0:
-                    bbox_issues.append(f"Overlapping bboxes: {i} and {j}")
-
-        stats = {
-            "total_annotations": len(annotations),
-            "unique_labels": len({ann["label"] for ann in annotations}),
-            "avg_words_per_label": label_counts,
-            "bbox_issues": bbox_issues,
-        }
-        return {"valid": len(issues) == 0, "issues": issues, "stats": stats}
+        return pydantic_validate_annotations(
+            annotations,
+            target_size=self.target_size,
+            check_overlaps=True,
+        )
 
     def create_xfund_entry(
         self, entry_id: str, image_filename: str, annotations: list[dict[str, Any]]

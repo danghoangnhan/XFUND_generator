@@ -398,6 +398,109 @@ class ValidationResult(BaseModel):
         self.warnings.append(message)
 
 
+class WordAnnotation(BaseModel):
+    """Pydantic model for word-level XFUND annotation."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    text: str = Field(..., description="Word text content")
+    bbox: list[int] = Field(..., description="Bounding box [x1, y1, x2, y2]")
+    label: str = Field(..., description="Field label/category")
+
+    @field_validator("text")
+    @classmethod
+    def validate_text_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Text cannot be empty")
+        return v
+
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox_format(cls, v: list[int]) -> list[int]:
+        if len(v) != 4:
+            raise ValueError("Bbox must have exactly 4 coordinates [x1, y1, x2, y2]")
+        return v
+
+    @model_validator(mode="after")
+    def validate_bbox_coordinates(self) -> "WordAnnotation":
+        x1, y1, x2, y2 = self.bbox
+        if x1 >= x2:
+            raise ValueError(f"x1 ({x1}) must be less than x2 ({x2})")
+        if y1 >= y2:
+            raise ValueError(f"y1 ({y1}) must be less than y2 ({y2})")
+        return self
+
+    def validate_bounds(self, max_value: int = 1000) -> list[str]:
+        """Validate bbox coordinates are within bounds. Returns list of issues."""
+        issues = []
+        for i, coord in enumerate(self.bbox):
+            if coord < 0 or coord > max_value:
+                issues.append(f"Coordinate {i} ({coord}) out of bounds [0, {max_value}]")
+        return issues
+
+    def intersects(self, other: "WordAnnotation") -> bool:
+        """Check if this annotation's bbox overlaps with another."""
+        x1_a, y1_a, x2_a, y2_a = self.bbox
+        x1_b, y1_b, x2_b, y2_b = other.bbox
+
+        # Check for no overlap conditions
+        if x2_a <= x1_b or x2_b <= x1_a:
+            return False
+        if y2_a <= y1_b or y2_b <= y1_a:
+            return False
+        return True
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary format."""
+        return {"text": self.text, "bbox": self.bbox, "label": self.label}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "WordAnnotation":
+        """Create from dictionary."""
+        return cls(text=data["text"], bbox=data["bbox"], label=data["label"])
+
+
+class AnnotationStats(BaseModel):
+    """Statistics about a collection of annotations."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    total_annotations: int = Field(default=0, description="Total number of annotations")
+    unique_labels: int = Field(default=0, description="Number of unique labels")
+    words_per_label: dict[str, int] = Field(
+        default_factory=dict, description="Word count per label"
+    )
+    bbox_overlaps: list[tuple[int, int]] = Field(
+        default_factory=list, description="Pairs of overlapping annotation indices"
+    )
+
+
+class AnnotationValidationResult(BaseModel):
+    """Result of annotation validation."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    valid: bool = Field(..., description="Whether all annotations are valid")
+    issues: list[str] = Field(
+        default_factory=list, description="Validation error messages"
+    )
+    stats: AnnotationStats = Field(
+        default_factory=AnnotationStats, description="Annotation statistics"
+    )
+
+    @classmethod
+    def create_valid(cls, stats: AnnotationStats) -> "AnnotationValidationResult":
+        """Create a successful validation result."""
+        return cls(valid=True, issues=[], stats=stats)
+
+    @classmethod
+    def create_invalid(
+        cls, issues: list[str], stats: AnnotationStats
+    ) -> "AnnotationValidationResult":
+        """Create a failed validation result."""
+        return cls(valid=len(issues) == 0, issues=issues, stats=stats)
+
+
 class TemplateValidationResult(BaseModel):
     """Result of DOCX template validation."""
 
@@ -492,6 +595,65 @@ def validate_config_file(config_path: str) -> ValidationResult:
         result.add_error(f"Error validating configuration: {str(e)}")
 
     return result
+
+
+def validate_annotations(
+    annotations: list[dict[str, Any]],
+    target_size: int = 1000,
+    check_overlaps: bool = True,
+) -> AnnotationValidationResult:
+    """
+    Validate a list of word annotations using Pydantic models.
+
+    Args:
+        annotations: List of annotation dictionaries with text, bbox, label
+        target_size: Maximum allowed bbox coordinate value
+        check_overlaps: Whether to check for overlapping bboxes
+
+    Returns:
+        AnnotationValidationResult with validation status and statistics
+    """
+    issues: list[str] = []
+    valid_annotations: list[WordAnnotation] = []
+    label_counts: dict[str, int] = {}
+
+    # Validate each annotation
+    for i, ann in enumerate(annotations):
+        try:
+            word_ann = WordAnnotation.from_dict(ann)
+            valid_annotations.append(word_ann)
+
+            # Count labels
+            label_counts[word_ann.label] = label_counts.get(word_ann.label, 0) + 1
+
+            # Check bounds
+            bounds_issues = word_ann.validate_bounds(target_size)
+            for issue in bounds_issues:
+                issues.append(f"Annotation {i}: {issue}")
+
+        except (ValueError, KeyError) as e:
+            issues.append(f"Annotation {i}: {e}")
+
+    # Check for overlapping bboxes
+    overlaps: list[tuple[int, int]] = []
+    if check_overlaps:
+        for i, ann1 in enumerate(valid_annotations):
+            for j, ann2 in enumerate(valid_annotations[i + 1 :], i + 1):
+                if ann1.intersects(ann2):
+                    overlaps.append((i, j))
+
+    stats = AnnotationStats(
+        total_annotations=len(annotations),
+        unique_labels=len(label_counts),
+        words_per_label=label_counts,
+        bbox_overlaps=overlaps,
+    )
+
+    return AnnotationValidationResult(
+        valid=len(issues) == 0,
+        issues=issues,
+        stats=stats,
+    )
 
 
 # Example usage and defaults

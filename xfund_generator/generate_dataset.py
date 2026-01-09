@@ -337,10 +337,10 @@ class XFUNDGenerator:
 
             # Step 4: Validate annotations
             validation_result = renderer.validate_annotations(annotations, image_size)
-            if not validation_result["valid"] and self.config.strict_validation:
+            if not validation_result.valid and self.config.strict_validation:
                 return {
                     "success": False,
-                    "error": f"Annotation validation failed: {validation_result['issues']}",
+                    "error": f"Annotation validation failed: {validation_result.issues}",
                 }
 
             # Step 5: Create XFUND entry

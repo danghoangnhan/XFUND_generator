@@ -8,14 +8,18 @@ import pytest
 from pydantic import ValidationError
 
 from xfund_generator.models import (
+    AnnotationStats,
+    AnnotationValidationResult,
     AugmentationDifficulty,
     BBoxModel,
     DataRecord,
     DocumentType,
     GeneratorConfig,
     TemplateValidationResult,
+    WordAnnotation,
     XFUNDEntity,
     get_default_config,
+    validate_annotations,
     validate_config_file,
 )
 
@@ -301,3 +305,174 @@ class TestPydanticIntegration:
         error = exc_info.value
         assert "image_dpi" in str(error)
         assert "int" in str(error) or "integer" in str(error)
+
+
+class TestWordAnnotation:
+    """Test WordAnnotation validation and methods."""
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_valid_word_annotation(self):
+        """Test creating a valid word annotation."""
+        ann = WordAnnotation(text="Hello", bbox=[10, 20, 100, 80], label="greeting")
+
+        assert ann.text == "Hello"
+        assert ann.bbox == [10, 20, 100, 80]
+        assert ann.label == "greeting"
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_word_annotation_to_dict(self):
+        """Test converting annotation to dictionary."""
+        ann = WordAnnotation(text="Test", bbox=[0, 0, 50, 50], label="test")
+        result = ann.to_dict()
+
+        assert result == {"text": "Test", "bbox": [0, 0, 50, 50], "label": "test"}
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_word_annotation_from_dict(self):
+        """Test creating annotation from dictionary."""
+        data = {"text": "World", "bbox": [100, 100, 200, 150], "label": "noun"}
+        ann = WordAnnotation.from_dict(data)
+
+        assert ann.text == "World"
+        assert ann.bbox == [100, 100, 200, 150]
+        assert ann.label == "noun"
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_invalid_empty_text(self):
+        """Test that empty text is rejected."""
+        with pytest.raises(ValidationError):
+            WordAnnotation(text="   ", bbox=[10, 20, 100, 80], label="test")
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_invalid_bbox_format(self):
+        """Test that invalid bbox format is rejected."""
+        with pytest.raises(ValidationError):
+            WordAnnotation(text="Test", bbox=[10, 20, 100], label="test")
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_invalid_bbox_coordinates(self):
+        """Test that invalid bbox coordinates are rejected."""
+        with pytest.raises(ValidationError):
+            # x1 >= x2
+            WordAnnotation(text="Test", bbox=[100, 20, 10, 80], label="test")
+
+        with pytest.raises(ValidationError):
+            # y1 >= y2
+            WordAnnotation(text="Test", bbox=[10, 80, 100, 20], label="test")
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_validate_bounds(self):
+        """Test bounds validation method."""
+        ann = WordAnnotation(text="Test", bbox=[10, 20, 100, 80], label="test")
+
+        # Should pass with default target_size=1000
+        issues = ann.validate_bounds(1000)
+        assert len(issues) == 0
+
+        # Should fail with smaller max_value
+        issues = ann.validate_bounds(50)
+        assert len(issues) > 0
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_intersects_overlapping(self):
+        """Test overlap detection for overlapping bboxes."""
+        ann1 = WordAnnotation(text="A", bbox=[10, 10, 100, 100], label="test")
+        ann2 = WordAnnotation(text="B", bbox=[50, 50, 150, 150], label="test")
+
+        assert ann1.intersects(ann2) is True
+        assert ann2.intersects(ann1) is True
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_intersects_non_overlapping(self):
+        """Test overlap detection for non-overlapping bboxes."""
+        ann1 = WordAnnotation(text="A", bbox=[10, 10, 100, 100], label="test")
+        ann2 = WordAnnotation(text="B", bbox=[200, 200, 300, 300], label="test")
+
+        assert ann1.intersects(ann2) is False
+        assert ann2.intersects(ann1) is False
+
+
+class TestAnnotationValidation:
+    """Test annotation validation function."""
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_validate_valid_annotations(self):
+        """Test validating valid annotations."""
+        annotations = [
+            {"text": "Hello", "bbox": [10, 20, 100, 80], "label": "greeting"},
+            {"text": "World", "bbox": [150, 20, 250, 80], "label": "greeting"},
+        ]
+        result = validate_annotations(annotations)
+
+        assert result.valid is True
+        assert len(result.issues) == 0
+        assert result.stats.total_annotations == 2
+        assert result.stats.unique_labels == 1
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_validate_detects_overlaps(self):
+        """Test that overlapping bboxes are detected."""
+        annotations = [
+            {"text": "A", "bbox": [10, 10, 100, 100], "label": "test"},
+            {"text": "B", "bbox": [50, 50, 150, 150], "label": "test"},
+        ]
+        result = validate_annotations(annotations, check_overlaps=True)
+
+        assert len(result.stats.bbox_overlaps) == 1
+        assert result.stats.bbox_overlaps[0] == (0, 1)
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_validate_invalid_annotation(self):
+        """Test validating annotations with invalid entries."""
+        annotations = [
+            {"text": "Valid", "bbox": [10, 20, 100, 80], "label": "test"},
+            {"text": "", "bbox": [150, 20, 250, 80], "label": "test"},  # Empty text
+        ]
+        result = validate_annotations(annotations)
+
+        assert result.valid is False
+        assert len(result.issues) > 0
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_validate_out_of_bounds(self):
+        """Test validating annotations with out-of-bounds coordinates."""
+        annotations = [
+            {"text": "Test", "bbox": [10, 20, 1500, 80], "label": "test"},  # x2 > 1000
+        ]
+        result = validate_annotations(annotations, target_size=1000)
+
+        assert result.valid is False
+        assert any("out of bounds" in issue for issue in result.issues)
+
+    @pytest.mark.unit
+    @pytest.mark.pydantic
+    def test_annotation_validation_result_factory(self):
+        """Test AnnotationValidationResult factory methods."""
+        stats = AnnotationStats(
+            total_annotations=5,
+            unique_labels=2,
+            words_per_label={"a": 3, "b": 2},
+        )
+
+        valid_result = AnnotationValidationResult.create_valid(stats)
+        assert valid_result.valid is True
+        assert len(valid_result.issues) == 0
+
+        invalid_result = AnnotationValidationResult.create_invalid(
+            ["Error 1", "Error 2"], stats
+        )
+        assert invalid_result.valid is False
+        assert len(invalid_result.issues) == 2
