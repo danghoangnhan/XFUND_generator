@@ -5,7 +5,6 @@ Integration test cases for XFUND form integration and unified JSON export.
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,7 +18,6 @@ try:
 except ImportError:
     XFUND_INTEGRATION_AVAILABLE = False
     XFUNDFormGenerator = None
-from xfund_generator.models import DataRecord
 
 
 class TestXFUNDFormIntegration:

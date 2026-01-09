@@ -3,7 +3,6 @@ Test cases for Pydantic model validation and functionality.
 """
 
 import json
-from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
