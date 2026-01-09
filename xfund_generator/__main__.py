@@ -5,6 +5,7 @@ Usage: python -m xfund_generator [args...]
 """
 
 import sys
+
 from .generate_dataset import main
 
 if __name__ == "__main__":

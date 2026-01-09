@@ -15,34 +15,36 @@ Features:
 __version__ = "1.0.0"
 __author__ = "Tu Hung Jen"
 
-# Core models and configuration
-from .models import (
-    GeneratorConfig,
-    BBoxModel,
-    DataRecord,
-    XFUNDEntity,
-    TemplateValidationResult,
-    DocumentType,
-    AugmentationDifficulty
-)
+from .augmentations import DocumentAugmenter
+from .docx_utils import validate_docx_template
 
 # Form classes and base functionality
 from .form import (
     BaseDataset,
-    XFUNDDataset,
+    FUNSDAnnotation,
     FUNSDDataset,
+    WildReceiptAnnotation,
     WildReceiptDataset,
     Word,
     XFUNDAnnotation,
-    FUNSDAnnotation,
-    WildReceiptAnnotation
+    XFUNDDataset,
 )
 
 # Core functionality
 from .generate_dataset import XFUNDGenerator
-from .utils import validate_docx_template, load_csv_data
+
+# Core models and configuration
+from .models import (
+    AugmentationDifficulty,
+    BBoxModel,
+    DataRecord,
+    DocumentType,
+    GeneratorConfig,
+    TemplateValidationResult,
+    XFUNDEntity,
+)
 from .renderer import DocumentRenderer
-from .augmentations import DocumentAugmenter
+from .utils import load_csv_data
 
 # Integration modules
 from .xfund_form_integration import XFUNDFormGenerator
@@ -51,32 +53,28 @@ __all__ = [
     # Version info
     "__version__",
     "__author__",
-    
     # Core models
     "GeneratorConfig",
-    "BBoxModel", 
+    "BBoxModel",
     "DataRecord",
     "XFUNDEntity",
     "TemplateValidationResult",
     "DocumentType",
     "AugmentationDifficulty",
-    
     # Form classes
     "BaseDataset",
     "XFUNDDataset",
-    "FUNSDDataset", 
+    "FUNSDDataset",
     "WildReceiptDataset",
     "Word",
     "XFUNDAnnotation",
     "FUNSDAnnotation",
     "WildReceiptAnnotation",
-    
     # Core functionality
     "XFUNDGenerator",
     "DocumentRenderer",
     "DocumentAugmenter",
     "XFUNDFormGenerator",
-    
     # Utilities
     "validate_docx_template",
     "load_csv_data",
