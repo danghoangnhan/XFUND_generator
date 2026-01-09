@@ -178,12 +178,12 @@ class TestRenderer:
             # Should have annotations for each word
             assert len(annotations) > 0
 
-            # Check annotation format
+            # Check annotation format (now returns WordAnnotation models)
             for ann in annotations:
-                assert "text" in ann
-                assert "bbox" in ann
-                assert "label" in ann
-                assert len(ann["bbox"]) == 4
+                assert hasattr(ann, "text")
+                assert hasattr(ann, "bbox")
+                assert hasattr(ann, "label")
+                assert len(ann.bbox) == 4
         else:
             pytest.skip("WordRenderer class not found")
 

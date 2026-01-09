@@ -438,7 +438,9 @@ class WordAnnotation(BaseModel):
         issues = []
         for i, coord in enumerate(self.bbox):
             if coord < 0 or coord > max_value:
-                issues.append(f"Coordinate {i} ({coord}) out of bounds [0, {max_value}]")
+                issues.append(
+                    f"Coordinate {i} ({coord}) out of bounds [0, {max_value}]"
+                )
         return issues
 
     def intersects(self, other: "WordAnnotation") -> bool:
@@ -448,7 +450,6 @@ class WordAnnotation(BaseModel):
 
         # Return True if bboxes overlap
         return not (x2_a <= x1_b or x2_b <= x1_a or y2_a <= y1_b or y2_b <= y1_a)
-
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
