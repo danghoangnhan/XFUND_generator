@@ -28,6 +28,7 @@ from .models import (
     DataRecord,
     GenerationResult,
     GeneratorConfig,
+    TemplateInfo,
     WordAnnotation,
     XFUNDAnnotation,
 )
@@ -174,14 +175,14 @@ class XFUNDGenerator:
 
         return result
 
-    def _find_templates(self) -> list[dict[str, str]]:
+    def _find_templates(self) -> list[TemplateInfo]:
         """
         Find and validate available templates.
 
         Returns:
-            List of template information dictionaries
+            List of TemplateInfo models
         """
-        templates: list[dict[str, str]] = []
+        templates: list[TemplateInfo] = []
 
         if not os.path.exists(self.templates_dir):
             logger.error(f"Templates directory not found: {self.templates_dir}")
@@ -248,11 +249,11 @@ class XFUNDGenerator:
                 continue
 
             templates.append(
-                {
-                    "name": template_name,
-                    "docx_path": str(docx_path),
-                    "layout_path": str(layout_path),
-                }
+                TemplateInfo(
+                    name=template_name,
+                    docx_path=str(docx_path),
+                    layout_path=str(layout_path),
+                )
             )
 
             logger.info(f"Found template: {template_name}")
@@ -260,7 +261,7 @@ class XFUNDGenerator:
         return templates
 
     def _generate_single_entry(
-        self, data_row: dict[str, str], template_info: dict[str, str], index: int
+        self, data_row: dict[str, str], template_info: TemplateInfo, index: int
     ) -> dict[str, Any]:
         """
         Generate a single dataset entry.
@@ -281,7 +282,7 @@ class XFUNDGenerator:
             image_path = os.path.join(self.images_dir, image_filename)
 
             image_path, image_size = process_docx_template(
-                template_info["docx_path"],
+                template_info.docx_path,
                 data_row,
                 image_path,
                 dpi=self.config.image_dpi,
@@ -296,7 +297,7 @@ class XFUNDGenerator:
 
             # Step 2: Generate word-level annotations
             renderer = WordRenderer(
-                template_info["layout_path"],
+                template_info.layout_path,
                 self.fonts_dir,
                 target_size=self.config.target_size,
             )
@@ -373,14 +374,14 @@ class XFUNDGenerator:
             return {"success": False, "error": str(e)}
 
     def _generate_single_entry_validated(
-        self, data_record: DataRecord, template_info: dict[str, str], index: int
+        self, data_record: DataRecord, template_info: TemplateInfo, index: int
     ) -> dict[str, Any]:
         """
         Generate single dataset entry with Pydantic validation.
 
         Args:
             data_record: Validated DataRecord model
-            template_info: Template information dictionary
+            template_info: Template information
             index: Numeric index for the entry
 
         Returns:
@@ -397,7 +398,7 @@ class XFUNDGenerator:
             image_path = os.path.join(self.images_dir, image_filename)
 
             image_path, image_size = process_docx_template(
-                template_info["docx_path"],
+                template_info.docx_path,
                 data_dict,
                 image_path,
                 dpi=self.config.image_dpi,
@@ -412,7 +413,7 @@ class XFUNDGenerator:
 
             # Step 2: Generate word-level annotations with validation
             renderer = WordRenderer(
-                template_info["layout_path"],
+                template_info.layout_path,
                 self.fonts_dir,
                 target_size=self.config.target_size,
             )

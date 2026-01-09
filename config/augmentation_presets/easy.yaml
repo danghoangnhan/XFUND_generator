@@ -1,0 +1,16 @@
+# Easy augmentation preset - minimal transformations
+difficulty: easy
+document_type: medical
+target_size: 1000
+
+enable_noise: true
+enable_blur: true
+enable_brightness: true
+enable_rotation: false
+enable_perspective: false
+augmentation_probability: 0.3
+
+scanning_artifacts: false
+paper_effects: false
+ink_bleeding: false
+handwriting_variation: false

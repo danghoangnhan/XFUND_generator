@@ -5,14 +5,14 @@ Provides realistic document augmentations while preserving annotation accuracy.
 
 import logging
 import random
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import albumentations as A
 import cv2
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
-from .models import AnnotationDict, WordAnnotation
+from .models import AugmentationConfig, WordAnnotation
 from .utils import BBox
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,8 @@ class DocumentAugmenter:
 
     def __init__(
         self,
+        config: Optional[AugmentationConfig] = None,
+        *,
         target_size: int = 1000,
         enable_noise: bool = True,
         enable_blur: bool = True,
@@ -37,10 +39,23 @@ class DocumentAugmenter:
         Initialize document augmenter.
 
         Args:
+            config: AugmentationConfig instance (preferred). If provided,
+                    other parameters are ignored.
             target_size: Target size for XFUND normalization
             enable_*: Enable/disable specific augmentation types
             augmentation_probability: Probability of applying augmentations
         """
+        # Use config if provided, otherwise use individual parameters
+        self.config: Optional[AugmentationConfig] = config
+        if config is not None:
+            target_size = config.target_size
+            enable_noise = config.enable_noise
+            enable_blur = config.enable_blur
+            enable_brightness = config.enable_brightness
+            enable_rotation = config.enable_rotation
+            enable_perspective = config.enable_perspective
+            augmentation_probability = config.augmentation_probability
+
         self.target_size = target_size
         self.augmentation_probability = augmentation_probability
 
@@ -221,7 +236,7 @@ class DocumentAugmenter:
         self,
         image: np.ndarray,
         annotations: list[WordAnnotation],
-        augment_config: dict[str, Any],
+        augment_config: Optional[Union[AugmentationConfig, dict[str, Any]]] = None,
     ) -> tuple[np.ndarray, list[WordAnnotation]]:
         """
         Apply specific manual augmentations with custom parameters.
@@ -229,7 +244,8 @@ class DocumentAugmenter:
         Args:
             image: Input image
             annotations: List of WordAnnotation models
-            augment_config: Configuration for specific augmentations
+            augment_config: AugmentationConfig instance or dict with options.
+                           If None, uses self.config if available.
 
         Returns:
             Augmented image and annotations
@@ -237,20 +253,31 @@ class DocumentAugmenter:
         augmented_image = image.copy()
         updated_annotations = list(annotations)
 
+        # Resolve config to dict
+        if augment_config is None:
+            if self.config is not None:
+                config_dict = self.config.to_manual_augment_kwargs()
+            else:
+                return augmented_image, updated_annotations
+        elif isinstance(augment_config, AugmentationConfig):
+            config_dict = augment_config.to_manual_augment_kwargs()
+        else:
+            config_dict = augment_config
+
         # Apply scanning artifacts
-        if augment_config.get("scanning_artifacts", False):
+        if config_dict.get("scanning_artifacts", False):
             augmented_image = self._add_scanning_artifacts(augmented_image)
 
         # Add paper wrinkles/folds
-        if augment_config.get("paper_effects", False):
+        if config_dict.get("paper_effects", False):
             augmented_image = self._add_paper_effects(augmented_image)
 
         # Simulate ink bleeding
-        if augment_config.get("ink_bleeding", False):
+        if config_dict.get("ink_bleeding", False):
             augmented_image = self._add_ink_bleeding(augmented_image)
 
         # Add handwriting variations
-        if augment_config.get("handwriting_variation", False):
+        if config_dict.get("handwriting_variation", False):
             # This would require more complex text replacement
             pass
 
@@ -375,58 +402,43 @@ class LightweightAugmenter:
 
 def create_augmentation_config(
     difficulty: str = "medium", document_type: str = "medical"
-) -> dict[str, Any]:
+) -> AugmentationConfig:
     """
     Create augmentation configuration based on difficulty and document type.
 
+    This function is a convenience wrapper around AugmentationConfig.from_difficulty().
+    For new code, prefer using AugmentationConfig.from_difficulty() directly.
+
     Args:
-        difficulty: 'light', 'medium', or 'heavy'
-        document_type: 'medical', 'legal', 'financial', etc.
+        difficulty: 'easy', 'medium', 'hard', or 'extreme'
+                   (Note: 'light' maps to 'easy', 'heavy' maps to 'hard')
+        document_type: 'medical', 'form', 'invoice', etc.
+                      (Note: 'handwritten' maps to 'form')
 
     Returns:
-        Configuration dictionary
+        AugmentationConfig instance
     """
-    base_config = {
-        "enable_noise": True,
-        "enable_blur": True,
-        "enable_brightness": True,
-        "enable_rotation": True,
-        "enable_perspective": True,
-        "augmentation_probability": 0.7,
+    # Map legacy difficulty names
+    difficulty_map = {
+        "light": "easy",
+        "heavy": "hard",
     }
+    difficulty = difficulty_map.get(difficulty, difficulty)
 
-    if difficulty == "light":
-        base_config.update(
-            {
-                "augmentation_probability": 0.3,
-                "enable_perspective": False,
-                "enable_rotation": False,
-            }
-        )
-    elif difficulty == "heavy":
-        base_config.update(
-            {
-                "augmentation_probability": 0.9,
-                "scanning_artifacts": True,
-                "paper_effects": True,
-                "ink_bleeding": True,
-            }
-        )
+    # Map legacy document type names
+    doc_type_map = {
+        "handwritten": "form",
+        "legal": "general",
+        "financial": "general",
+    }
+    document_type = doc_type_map.get(document_type, document_type)
 
-    # Document-specific adjustments
-    if document_type == "medical":
-        # Medical documents are typically cleaner
-        base_config.update({"enable_noise": True, "ink_bleeding": False})
-    elif document_type == "handwritten":
-        # Handwritten documents need more variation
-        base_config.update({"handwriting_variation": True, "ink_bleeding": True})
-
-    return base_config
+    return AugmentationConfig.from_difficulty(difficulty, document_type)
 
 
 def validate_augmentation_quality(
-    original_annotations: list[AnnotationDict],
-    augmented_annotations: list[AnnotationDict],
+    original_annotations: list[WordAnnotation],
+    augmented_annotations: list[WordAnnotation],
 ) -> dict[str, Any]:
     """
     Validate that augmentation preserved annotation quality.
@@ -458,20 +470,20 @@ def validate_augmentation_quality(
 
     # Check bbox displacement (simplified matching by label)
     for orig_ann in original_annotations:
-        label = orig_ann["label"]
-        text = orig_ann["text"]
+        label = orig_ann.label
+        text = orig_ann.text
 
         # Find matching annotation in augmented set
         matching_ann = None
         for aug_ann in augmented_annotations:
-            if aug_ann["label"] == label and aug_ann["text"] == text:
+            if aug_ann.label == label and aug_ann.text == text:
                 matching_ann = aug_ann
                 break
 
         if matching_ann:
             # Calculate bbox center displacement
-            orig_bbox = BBox(*orig_ann["bbox"])
-            aug_bbox = BBox(*matching_ann["bbox"])
+            orig_bbox = BBox(*orig_ann.bbox)
+            aug_bbox = BBox(*matching_ann.bbox)
 
             orig_center = (
                 (orig_bbox.x1 + orig_bbox.x2) / 2,

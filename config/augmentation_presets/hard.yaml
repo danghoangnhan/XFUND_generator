@@ -1,0 +1,16 @@
+# Hard augmentation preset - aggressive transformations for robust training
+difficulty: hard
+document_type: medical
+target_size: 1000
+
+enable_noise: true
+enable_blur: true
+enable_brightness: true
+enable_rotation: true
+enable_perspective: true
+augmentation_probability: 0.9
+
+scanning_artifacts: true
+paper_effects: true
+ink_bleeding: true
+handwriting_variation: false

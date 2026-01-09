@@ -1,0 +1,32 @@
+# Augmentation Configuration for XFUND Generator
+# This file can be loaded using AugmentationConfig.from_yaml()
+#
+# Example usage:
+#   from xfund_generator.models import AugmentationConfig
+#   config = AugmentationConfig.from_yaml("config/augmentation_config.yaml")
+#   augmenter = DocumentAugmenter(config=config)
+
+# Difficulty preset: easy, medium, hard, extreme
+difficulty: medium
+
+# Document type: medical, form, invoice, receipt, contract, general
+document_type: medical
+
+# Target size for XFUND bbox normalization (0-1000 scale)
+target_size: 1000
+
+# Core augmentation toggles
+enable_noise: true
+enable_blur: true
+enable_brightness: true
+enable_rotation: true
+enable_perspective: true
+
+# Overall probability of applying augmentations (0.0 to 1.0)
+augmentation_probability: 0.7
+
+# Manual augmentation options (for apply_manual_augmentations)
+scanning_artifacts: false   # Add scanning artifact effects (lines, color cast)
+paper_effects: false        # Add paper texture and fold effects
+ink_bleeding: false         # Simulate ink bleeding on dark areas
+handwriting_variation: false # Enable handwriting style variations

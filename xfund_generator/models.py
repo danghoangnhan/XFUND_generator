@@ -6,8 +6,9 @@ Provides data validation, serialization, and type safety.
 import json
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -139,38 +140,199 @@ class XFUNDAnnotation(BaseModel):
 
 
 class AugmentationConfig(BaseModel):
-    """Configuration for document augmentations."""
+    """Configuration for document augmentations.
+
+    This model defines all augmentation settings used by DocumentAugmenter.
+    Supports loading from YAML files and creating presets by difficulty level.
+    """
 
     model_config = ConfigDict(validate_assignment=True)
 
-    difficulty: AugmentationDifficulty = Field(default=AugmentationDifficulty.MEDIUM)
-    brightness_range: tuple[float, float] = Field(
-        default=(0.8, 1.2), description="Brightness adjustment range"
+    # Metadata
+    difficulty: AugmentationDifficulty = Field(
+        default=AugmentationDifficulty.MEDIUM,
+        description="Augmentation difficulty preset",
     )
-    contrast_range: tuple[float, float] = Field(
-        default=(0.8, 1.2), description="Contrast adjustment range"
-    )
-    blur_probability: float = Field(
-        default=0.3, ge=0.0, le=1.0, description="Probability of applying blur"
-    )
-    noise_probability: float = Field(
-        default=0.2, ge=0.0, le=1.0, description="Probability of adding noise"
-    )
-    rotation_range: tuple[float, float] = Field(
-        default=(-2.0, 2.0), description="Rotation angle range in degrees"
-    )
-    perspective_probability: float = Field(
-        default=0.1, ge=0.0, le=1.0, description="Probability of perspective transform"
+    document_type: DocumentType = Field(
+        default=DocumentType.MEDICAL,
+        description="Target document type for augmentation tuning",
     )
 
-    @field_validator("brightness_range", "contrast_range")
+    # Core augmentation toggles (used by DocumentAugmenter)
+    enable_noise: bool = Field(default=True, description="Enable noise augmentations")
+    enable_blur: bool = Field(default=True, description="Enable blur augmentations")
+    enable_brightness: bool = Field(
+        default=True, description="Enable brightness/contrast augmentations"
+    )
+    enable_rotation: bool = Field(
+        default=True, description="Enable rotation augmentations"
+    )
+    enable_perspective: bool = Field(
+        default=True, description="Enable perspective transform"
+    )
+    augmentation_probability: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Overall probability of applying augmentations",
+    )
+
+    # Manual augmentation options (used by apply_manual_augmentations)
+    scanning_artifacts: bool = Field(
+        default=False, description="Add scanning artifact effects"
+    )
+    paper_effects: bool = Field(
+        default=False, description="Add paper texture and fold effects"
+    )
+    ink_bleeding: bool = Field(default=False, description="Simulate ink bleeding")
+    handwriting_variation: bool = Field(
+        default=False, description="Enable handwriting style variations"
+    )
+
+    # Target size for XFUND normalization
+    target_size: int = Field(
+        default=1000, ge=224, description="Target size for bbox normalization"
+    )
+
     @classmethod
-    def validate_ranges(cls, v):
-        if v[0] >= v[1]:
-            raise ValueError("Range minimum must be less than maximum")
-        if v[0] <= 0:
-            raise ValueError("Range values must be positive")
-        return v
+    def from_yaml(cls, file_path: Union[str, Path]) -> "AugmentationConfig":
+        """Load augmentation config from a YAML file.
+
+        Args:
+            file_path: Path to YAML configuration file
+
+        Returns:
+            AugmentationConfig instance
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If YAML is invalid
+        """
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {file_path}")
+
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        if data is None:
+            data = {}
+
+        return cls(**data)
+
+    def to_yaml(self, file_path: Union[str, Path]) -> None:
+        """Save augmentation config to a YAML file.
+
+        Args:
+            file_path: Path to save YAML configuration
+        """
+        path = Path(file_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        data = self.model_dump(mode="json")
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+
+    @classmethod
+    def from_difficulty(
+        cls,
+        difficulty: Union[str, AugmentationDifficulty] = "medium",
+        document_type: Union[str, DocumentType] = "medical",
+    ) -> "AugmentationConfig":
+        """Create config from difficulty preset and document type.
+
+        This factory method replaces the old create_augmentation_config function.
+
+        Args:
+            difficulty: 'easy', 'medium', 'hard', or 'extreme'
+            document_type: 'medical', 'form', 'invoice', etc.
+
+        Returns:
+            AugmentationConfig with appropriate settings
+        """
+        # Normalize inputs to enums
+        if isinstance(difficulty, str):
+            difficulty = AugmentationDifficulty(difficulty.lower())
+        if isinstance(document_type, str):
+            document_type = DocumentType(document_type.lower())
+
+        # Base config
+        config_data: dict[str, Any] = {
+            "difficulty": difficulty,
+            "document_type": document_type,
+            "enable_noise": True,
+            "enable_blur": True,
+            "enable_brightness": True,
+            "enable_rotation": True,
+            "enable_perspective": True,
+            "augmentation_probability": 0.7,
+        }
+
+        # Apply difficulty presets
+        if difficulty == AugmentationDifficulty.EASY:
+            config_data.update(
+                {
+                    "augmentation_probability": 0.3,
+                    "enable_perspective": False,
+                    "enable_rotation": False,
+                }
+            )
+        elif difficulty == AugmentationDifficulty.HARD:
+            config_data.update(
+                {
+                    "augmentation_probability": 0.9,
+                    "scanning_artifacts": True,
+                    "paper_effects": True,
+                    "ink_bleeding": True,
+                }
+            )
+        elif difficulty == AugmentationDifficulty.EXTREME:
+            config_data.update(
+                {
+                    "augmentation_probability": 1.0,
+                    "scanning_artifacts": True,
+                    "paper_effects": True,
+                    "ink_bleeding": True,
+                    "handwriting_variation": True,
+                }
+            )
+
+        # Apply document-type adjustments
+        if document_type == DocumentType.MEDICAL:
+            config_data.update({"enable_noise": True, "ink_bleeding": False})
+        elif document_type == DocumentType.FORM:
+            config_data.update({"handwriting_variation": True, "ink_bleeding": True})
+
+        return cls(**config_data)
+
+    def to_augmenter_kwargs(self) -> dict[str, Any]:
+        """Convert to kwargs dict for DocumentAugmenter.__init__.
+
+        Returns:
+            Dictionary of keyword arguments for DocumentAugmenter
+        """
+        return {
+            "target_size": self.target_size,
+            "enable_noise": self.enable_noise,
+            "enable_blur": self.enable_blur,
+            "enable_brightness": self.enable_brightness,
+            "enable_rotation": self.enable_rotation,
+            "enable_perspective": self.enable_perspective,
+            "augmentation_probability": self.augmentation_probability,
+        }
+
+    def to_manual_augment_kwargs(self) -> dict[str, Any]:
+        """Convert to kwargs dict for apply_manual_augmentations.
+
+        Returns:
+            Dictionary of manual augmentation options
+        """
+        return {
+            "scanning_artifacts": self.scanning_artifacts,
+            "paper_effects": self.paper_effects,
+            "ink_bleeding": self.ink_bleeding,
+            "handwriting_variation": self.handwriting_variation,
+        }
 
 
 class TemplateConfig(BaseModel):
@@ -192,6 +354,16 @@ class TemplateConfig(BaseModel):
     def validate_template_path(cls, v):
         """Validate template path - allows non-existent paths for testing."""
         return str(Path(v))
+
+
+class TemplateInfo(BaseModel):
+    """Information about a discovered template pair (DOCX + layout JSON)."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    name: str = Field(..., description="Template name (without extension)")
+    docx_path: str = Field(..., description="Path to DOCX template file")
+    layout_path: str = Field(..., description="Path to layout JSON file")
 
 
 class DataRecord(BaseModel):
@@ -738,6 +910,6 @@ if __name__ == "__main__":
     print(config.model_dump_json(indent=2))
 
     # Example bbox creation
-    bbox = BBoxModel(10, 20, 100, 80)
+    bbox = BBoxModel(x1=10, y1=20, x2=100, y2=80)
     print(f"\nBBox: {bbox.to_list()}")
     print(f"Area: {bbox.area()}")
