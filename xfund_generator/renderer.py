@@ -14,6 +14,8 @@ from .models import (
     AnnotationValidationResult,
     WordAnnotation,
     XFUNDEntry,
+)
+from .models import (
     validate_annotations as pydantic_validate_annotations,
 )
 from .utils import (
@@ -55,11 +57,9 @@ class WordRenderer:
         field_data: dict[str, str],
         image_size: tuple[int, int],
         add_jitter: bool = True,
-    ) -> list[dict[str, Any]]:
+    ) -> list[WordAnnotation]:
         """
         Generate word-level XFUND annotations from field data.
-
-        Uses WordAnnotation Pydantic model internally for validation.
 
         Args:
             field_data: Dictionary of field names to text values
@@ -67,7 +67,7 @@ class WordRenderer:
             add_jitter: Whether to add small random jitter to bboxes
 
         Returns:
-            List of XFUND annotation dictionaries
+            List of validated WordAnnotation models
         """
         annotations: list[WordAnnotation] = []
         img_width, img_height = image_size
@@ -101,8 +101,7 @@ class WordRenderer:
                 annotations.append(annotation)
 
         logger.info(f"Generated {len(annotations)} word annotations")
-        # Convert to dicts for backward compatibility
-        return [ann.to_dict() for ann in annotations]
+        return annotations
 
     def _get_field_bbox(self, field_name: str) -> Optional[BBox]:
         """
@@ -137,7 +136,7 @@ class WordRenderer:
     def render_debug_overlay(
         self,
         image_path: str,
-        annotations: list[dict[str, Any]],
+        annotations: list[WordAnnotation],
         output_path: str,
         show_labels: bool = True,
     ) -> str:
@@ -146,7 +145,7 @@ class WordRenderer:
 
         Args:
             image_path: Path to the source image
-            annotations: List of XFUND annotations
+            annotations: List of WordAnnotation models
             output_path: Path for output debug image
             show_labels: Whether to show field labels on bboxes
 
@@ -170,7 +169,7 @@ class WordRenderer:
                     (0, 255, 255),  # Cyan
                 ]
 
-                label_colors = {}
+                label_colors: dict[str, tuple[int, int, int]] = {}
                 color_idx = 0
 
                 # Load font for labels
@@ -190,21 +189,15 @@ class WordRenderer:
 
                 # Draw bounding boxes
                 for annotation in annotations:
-                    label = annotation["label"]
-                    bbox_coords = annotation["bbox"]
-                    text = annotation["text"]
-
                     # Assign color to label
-                    if label not in label_colors:
-                        label_colors[label] = colors[color_idx % len(colors)]
+                    if annotation.label not in label_colors:
+                        label_colors[annotation.label] = colors[color_idx % len(colors)]
                         color_idx += 1
 
-                    color = label_colors[label]
+                    color = label_colors[annotation.label]
 
                     # Denormalize bbox coordinates
-                    bbox = BBox(
-                        bbox_coords[0], bbox_coords[1], bbox_coords[2], bbox_coords[3]
-                    )
+                    bbox = BBox(*annotation.bbox)
                     actual_bbox = bbox.denormalize(
                         img_width, img_height, self.target_size
                     )
@@ -223,7 +216,7 @@ class WordRenderer:
 
                     # Draw text and label
                     if show_labels:
-                        label_text = f"{text} ({label})"
+                        label_text = f"{annotation.text} ({annotation.label})"
                         draw.text(
                             (actual_bbox.x1, actual_bbox.y1 - 20),
                             label_text,
@@ -242,7 +235,7 @@ class WordRenderer:
 
     def validate_annotations(
         self,
-        annotations: list[dict[str, Any]],
+        annotations: list[WordAnnotation],
         image_size: tuple[int, int],  # noqa: ARG002
     ) -> AnnotationValidationResult:
         """
@@ -251,20 +244,22 @@ class WordRenderer:
         Uses Pydantic models for validation with proper type safety.
 
         Args:
-            annotations: List of XFUND annotations
+            annotations: List of WordAnnotation models
             image_size: Image dimensions (unused, kept for API compatibility)
 
         Returns:
             AnnotationValidationResult with validation status and statistics
         """
+        # Convert to dicts for the validation function
+        annotation_dicts = [ann.to_dict() for ann in annotations]
         return pydantic_validate_annotations(
-            annotations,
+            annotation_dicts,
             target_size=self.target_size,
             check_overlaps=True,
         )
 
     def create_xfund_entry(
-        self, entry_id: str, image_filename: str, annotations: list[dict[str, Any]]
+        self, entry_id: str, image_filename: str, annotations: list[WordAnnotation]
     ) -> XFUNDEntry:
         """
         Create complete XFUND format entry with Pydantic validation.
@@ -272,21 +267,15 @@ class WordRenderer:
         Args:
             entry_id: Unique ID for the entry
             image_filename: Name of the image file (relative to images directory)
-            annotations: List of word-level annotations
+            annotations: List of WordAnnotation models
 
         Returns:
             Validated XFUNDEntry model
         """
-        # Convert dict annotations to WordAnnotation models
-        word_annotations = [
-            WordAnnotation.from_dict(ann) if isinstance(ann, dict) else ann
-            for ann in annotations
-        ]
-
         return XFUNDEntry(
             id=entry_id,
             image=f"images/{image_filename}",
-            annotations=word_annotations,
+            annotations=annotations,
         )
 
     def get_layout_fields(self) -> list[str]:

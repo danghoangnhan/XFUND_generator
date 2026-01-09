@@ -28,6 +28,7 @@ from .models import (
     DataRecord,
     GenerationResult,
     GeneratorConfig,
+    WordAnnotation,
     XFUNDAnnotation,
 )
 from .renderer import WordRenderer, create_sample_layout
@@ -495,13 +496,13 @@ class XFUNDGenerator:
             return {"success": False, "error": str(e)}
 
     def _create_validated_annotation(
-        self, raw_annotations: list[dict[str, Any]], image_path: str, entry_id: str
+        self, annotations: list[WordAnnotation], image_path: str, entry_id: str
     ) -> XFUNDAnnotation:
         """
-        Create validated XFUNDAnnotation from raw annotation data.
+        Create validated XFUNDAnnotation from WordAnnotation models.
 
         Args:
-            raw_annotations: List of raw annotation dictionaries
+            annotations: List of WordAnnotation models
             image_path: Path to the image file
             entry_id: Unique entry identifier
 
@@ -513,22 +514,22 @@ class XFUNDGenerator:
 
         entities = []
 
-        for i, annotation in enumerate(raw_annotations):
+        for i, annotation in enumerate(annotations):
             try:
-                # Create BBox from coordinates
+                # Create BBox from WordAnnotation bbox
                 bbox = BBoxModel(
-                    x1=annotation["bbox"][0],
-                    y1=annotation["bbox"][1],
-                    x2=annotation["bbox"][2],
-                    y2=annotation["bbox"][3],
+                    x1=annotation.bbox[0],
+                    y1=annotation.bbox[1],
+                    x2=annotation.bbox[2],
+                    y2=annotation.bbox[3],
                 )
 
                 # Create validated entity
                 entity = create_xfund_entity_from_text(
                     entity_id=i,
-                    text=annotation["text"],
+                    text=annotation.text,
                     bbox=bbox,
-                    label=annotation.get("label", "OTHER"),
+                    label=annotation.label,
                 )
 
                 entities.append(entity)

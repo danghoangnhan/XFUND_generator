@@ -10,6 +10,9 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+# Type alias for annotation dictionaries (for backward compatibility)
+AnnotationDict = dict[str, Any]
+
 
 class DocumentType(str, Enum):
     """Supported document types for generation."""
@@ -443,12 +446,9 @@ class WordAnnotation(BaseModel):
         x1_a, y1_a, x2_a, y2_a = self.bbox
         x1_b, y1_b, x2_b, y2_b = other.bbox
 
-        # Check for no overlap conditions
-        if x2_a <= x1_b or x2_b <= x1_a:
-            return False
-        if y2_a <= y1_b or y2_b <= y1_a:
-            return False
-        return True
+        # Return True if bboxes overlap
+        return not (x2_a <= x1_b or x2_b <= x1_a or y2_a <= y1_b or y2_b <= y1_a)
+
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""

@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
+from .models import AnnotationDict, WordAnnotation
 from .utils import BBox
 
 logger = logging.getLogger(__name__)
@@ -113,15 +114,15 @@ class DocumentAugmenter:
     def apply_augmentations(
         self,
         image: np.ndarray,
-        annotations: list[dict[str, Any]],
+        annotations: list[WordAnnotation],
         apply_probability: Optional[float] = None,
-    ) -> tuple[np.ndarray, list[dict[str, Any]]]:
+    ) -> tuple[np.ndarray, list[WordAnnotation]]:
         """
         Apply augmentations to image and adjust bounding boxes accordingly.
 
         Args:
             image: Input image as numpy array
-            annotations: List of XFUND annotations
+            annotations: List of WordAnnotation models
             apply_probability: Override default augmentation probability
 
         Returns:
@@ -142,17 +143,19 @@ class DocumentAugmenter:
             height, width = image.shape[:2]
             bboxes = []
             bbox_labels = []
+            # Keep track of original annotations for matching
+            annotations_list = list(annotations)
 
-            for ann in annotations:
+            for ann in annotations_list:
                 # Denormalize bbox from XFUND format to actual coordinates
-                bbox_xfund = BBox(*ann["bbox"])
+                bbox_xfund = BBox(*ann.bbox)
                 bbox_actual = bbox_xfund.denormalize(width, height, self.target_size)
 
                 # Convert to pascal_voc format
                 bboxes.append(
                     [bbox_actual.x1, bbox_actual.y1, bbox_actual.x2, bbox_actual.y2]
                 )
-                bbox_labels.append(ann["label"])
+                bbox_labels.append(ann.label)
 
             # Apply transformations
             if bboxes:
@@ -165,16 +168,18 @@ class DocumentAugmenter:
                 transformed_labels = transformed["bbox_labels"]
 
                 # Update annotations with transformed bboxes
-                updated_annotations = []
+                updated_annotations: list[WordAnnotation] = []
+                remaining_annotations = list(annotations_list)
+
                 for _i, (bbox, label) in enumerate(
                     zip(transformed_bboxes, transformed_labels)
                 ):
-                    # Find original annotation with matching label and similar position
+                    # Find original annotation with matching label
                     original_ann = None
-                    for ann in annotations:
-                        if ann["label"] == label:
+                    for ann in remaining_annotations:
+                        if ann.label == label:
                             original_ann = ann
-                            annotations.remove(ann)  # Remove to avoid duplicates
+                            remaining_annotations.remove(ann)
                             break
 
                     if original_ann:
@@ -185,12 +190,16 @@ class DocumentAugmenter:
                             aug_width, aug_height, self.target_size
                         )
 
-                        updated_ann = original_ann.copy()
-                        updated_ann["bbox"] = bbox_normalized.to_xfund_format()
+                        # Create new WordAnnotation with updated bbox
+                        updated_ann = WordAnnotation(
+                            text=original_ann.text,
+                            bbox=bbox_normalized.to_xfund_format(),
+                            label=original_ann.label,
+                        )
                         updated_annotations.append(updated_ann)
 
-                # Add any remaining annotations that weren't transformed (edge case)
-                updated_annotations.extend(annotations)
+                # Add any remaining annotations that weren't transformed
+                updated_annotations.extend(remaining_annotations)
 
                 logger.debug(
                     f"Applied augmentations: {len(transformed_bboxes)} bboxes transformed"
@@ -202,31 +211,31 @@ class DocumentAugmenter:
                 transformed = self.transform_pipeline(
                     image=image, bboxes=[], bbox_labels=[]
                 )
-                return transformed["image"], annotations
+                return transformed["image"], annotations_list
 
         except Exception as e:
             logger.warning(f"Augmentation failed, returning original: {e}")
-            return image, annotations
+            return image, list(annotations)
 
     def apply_manual_augmentations(
         self,
         image: np.ndarray,
-        annotations: list[dict[str, Any]],
+        annotations: list[WordAnnotation],
         augment_config: dict[str, Any],
-    ) -> tuple[np.ndarray, list[dict[str, Any]]]:
+    ) -> tuple[np.ndarray, list[WordAnnotation]]:
         """
         Apply specific manual augmentations with custom parameters.
 
         Args:
             image: Input image
-            annotations: Annotations list
+            annotations: List of WordAnnotation models
             augment_config: Configuration for specific augmentations
 
         Returns:
             Augmented image and annotations
         """
         augmented_image = image.copy()
-        updated_annotations = annotations.copy()
+        updated_annotations = list(annotations)
 
         # Apply scanning artifacts
         if augment_config.get("scanning_artifacts", False):
@@ -316,14 +325,14 @@ class LightweightAugmenter:
         self.target_size = target_size
 
     def apply_basic_augmentations(
-        self, image_pil: Image.Image, annotations: list[dict[str, Any]]
-    ) -> tuple[Image.Image, list[dict[str, Any]]]:
+        self, image_pil: Image.Image, annotations: list[WordAnnotation]
+    ) -> tuple[Image.Image, list[WordAnnotation]]:
         """
         Apply basic PIL-based augmentations.
 
         Args:
             image_pil: PIL Image object
-            annotations: XFUND annotations
+            annotations: List of WordAnnotation models
 
         Returns:
             Augmented image and annotations
@@ -416,8 +425,8 @@ def create_augmentation_config(
 
 
 def validate_augmentation_quality(
-    original_annotations: list[dict[str, Any]],
-    augmented_annotations: list[dict[str, Any]],
+    original_annotations: list[AnnotationDict],
+    augmented_annotations: list[AnnotationDict],
 ) -> dict[str, Any]:
     """
     Validate that augmentation preserved annotation quality.
