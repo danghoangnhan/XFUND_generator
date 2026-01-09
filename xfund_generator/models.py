@@ -460,6 +460,63 @@ class WordAnnotation(BaseModel):
         return cls(text=data["text"], bbox=data["bbox"], label=data["label"])
 
 
+class XFUNDEntry(BaseModel):
+    """Pydantic model for a complete XFUND dataset entry.
+
+    Represents a single document with its image and word-level annotations.
+    Used by WordRenderer.create_xfund_entry for validated entry creation.
+    """
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    id: str = Field(..., description="Unique entry identifier")
+    image: str = Field(..., description="Relative path to image file")
+    annotations: list[WordAnnotation] = Field(
+        default_factory=list, description="List of word-level annotations"
+    )
+
+    @field_validator("id")
+    @classmethod
+    def validate_id_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Entry ID cannot be empty")
+        return v.strip()
+
+    @field_validator("image")
+    @classmethod
+    def validate_image_path(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Image path cannot be empty")
+        return v
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary format for JSON serialization."""
+        return {
+            "id": self.id,
+            "image": self.image,
+            "annotations": [ann.to_dict() for ann in self.annotations],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "XFUNDEntry":
+        """Create from dictionary."""
+        annotations = [
+            WordAnnotation.from_dict(ann) if isinstance(ann, dict) else ann
+            for ann in data.get("annotations", [])
+        ]
+        return cls(id=data["id"], image=data["image"], annotations=annotations)
+
+    @property
+    def annotation_count(self) -> int:
+        """Return the number of annotations."""
+        return len(self.annotations)
+
+    @property
+    def unique_labels(self) -> set[str]:
+        """Return set of unique labels in this entry."""
+        return {ann.label for ann in self.annotations}
+
+
 class AnnotationStats(BaseModel):
     """Statistics about a collection of annotations."""
 

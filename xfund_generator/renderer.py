@@ -13,6 +13,7 @@ from PIL.ImageFont import FreeTypeFont
 from .models import (
     AnnotationValidationResult,
     WordAnnotation,
+    XFUNDEntry,
     validate_annotations as pydantic_validate_annotations,
 )
 from .utils import (
