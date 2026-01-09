@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from docx import Document
 from pdf2image import convert_from_path
@@ -17,6 +17,9 @@ from PIL import Image
 
 from .models import TemplateValidationResult
 from .utils import ensure_dir_exists, normalize_field_name
+
+if TYPE_CHECKING:
+    from docx.document import Document as DocumentType
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +78,7 @@ class DocxProcessor:
         return output_path
 
     def _replace_placeholders_in_paragraphs(
-        self, doc: Document, data: dict[str, str]
+        self, doc: "DocumentType", data: dict[str, str]
     ) -> None:
         """Replace placeholders in document paragraphs."""
         for paragraph in doc.paragraphs:
@@ -85,7 +88,7 @@ class DocxProcessor:
                     paragraph.text = paragraph.text.replace(placeholder, str(value))
 
     def _replace_placeholders_in_tables(
-        self, doc: Document, data: dict[str, str]
+        self, doc: "DocumentType", data: dict[str, str]
     ) -> None:
         """Replace placeholders in document tables."""
         for table in doc.tables:
@@ -97,7 +100,7 @@ class DocxProcessor:
                             cell.text = cell.text.replace(placeholder, str(value))
 
     def _replace_placeholders_in_headers_footers(
-        self, doc: Document, data: dict[str, str]
+        self, doc: "DocumentType", data: dict[str, str]
     ) -> None:
         """Replace placeholders in headers and footers."""
         for section in doc.sections:

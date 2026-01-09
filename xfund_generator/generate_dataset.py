@@ -180,7 +180,7 @@ class XFUNDGenerator:
         Returns:
             List of template information dictionaries
         """
-        templates = []
+        templates: list[dict[str, str]] = []
 
         if not os.path.exists(self.templates_dir):
             logger.error(f"Templates directory not found: {self.templates_dir}")
@@ -195,9 +195,9 @@ class XFUNDGenerator:
 
             # Validate template
             template_validation = validate_docx_template(str(docx_path))
-            if not template_validation["valid"]:
+            if not template_validation.valid:
                 logger.warning(
-                    f"Invalid template {docx_path}: {template_validation['error']}"
+                    f"Invalid template {docx_path}: {template_validation.error}"
                 )
                 continue
 
@@ -283,7 +283,7 @@ class XFUNDGenerator:
                 template_info["docx_path"],
                 data_row,
                 image_path,
-                dpi=self.config.get("image_dpi", 300),
+                dpi=self.config.image_dpi,
             )
 
             # Validate image
@@ -297,17 +297,17 @@ class XFUNDGenerator:
             renderer = WordRenderer(
                 template_info["layout_path"],
                 self.fonts_dir,
-                target_size=self.config.get("target_size", 1000),
+                target_size=self.config.target_size,
             )
 
             annotations = renderer.generate_word_annotations(
                 data_row,
                 image_size,
-                add_jitter=self.config.get("add_bbox_jitter", True),
+                add_jitter=self.config.add_bbox_jitter,
             )
 
             # Step 3: Apply augmentations if enabled
-            if self.augmenter and self.config.get("enable_augmentations", True):
+            if self.augmenter and self.config.enable_augmentations:
                 # Load image for augmentation
                 image = cv2.imread(image_path)
                 image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -321,9 +321,7 @@ class XFUNDGenerator:
                 aug_validation = validate_augmentation_quality(
                     annotations, augmented_annotations
                 )
-                if not aug_validation["valid"] and self.config.get(
-                    "strict_augmentation", False
-                ):
+                if not aug_validation["valid"] and self.config.strict_augmentation:
                     logger.warning(
                         f"Augmentation quality issues for {entry_id}: {aug_validation['issues']}"
                     )
@@ -339,9 +337,7 @@ class XFUNDGenerator:
 
             # Step 4: Validate annotations
             validation_result = renderer.validate_annotations(annotations, image_size)
-            if not validation_result["valid"] and self.config.get(
-                "strict_validation", False
-            ):
+            if not validation_result["valid"] and self.config.strict_validation:
                 return {
                     "success": False,
                     "error": f"Annotation validation failed: {validation_result['issues']}",
@@ -357,7 +353,7 @@ class XFUNDGenerator:
             save_xfund_annotation(xfund_entry, annotation_path)
 
             # Optional: Generate debug overlay
-            if self.config.get("generate_debug_overlays", False):
+            if self.config.generate_debug_overlays:
                 debug_dir = os.path.join(self.output_dir, "debug")
                 ensure_dir_exists(debug_dir)
                 debug_path = os.path.join(debug_dir, f"{entry_id}_debug.png")
@@ -784,9 +780,10 @@ def main():
         if path_key in config and not os.path.isabs(config[path_key]):
             config[path_key] = os.path.abspath(config[path_key])
 
-    # Initialize generator
+    # Initialize generator with validated config
     try:
-        generator = XFUNDGenerator(config)
+        generator_config = GeneratorConfig(**config)
+        generator = XFUNDGenerator(generator_config)
     except Exception as e:
         logger.error(f"Failed to initialize generator: {e}")
         return 1

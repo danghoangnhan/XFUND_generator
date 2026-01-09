@@ -206,11 +206,19 @@ class DataRecord(BaseModel):
     )
     doctor_name_text: Optional[str] = Field(default=None, description="Doctor name")
     patient_name_text: Optional[str] = Field(default=None, description="Patient name")
-    department_text: Optional[str] = Field(default=None, description="Medical department")
+    department_text: Optional[str] = Field(
+        default=None, description="Medical department"
+    )
     diagnose_text: Optional[str] = Field(default=None, description="Diagnosis")
     doctor_comment_text: Optional[str] = Field(
         default=None, description="Doctor comments"
     )
+
+    # Template-related fields for XFUND form integration
+    template_name: Optional[str] = Field(default=None, description="Template name")
+    field_name: Optional[str] = Field(default=None, description="Field name")
+    field_value: Optional[str] = Field(default=None, description="Field value")
+    bbox: Optional[str] = Field(default=None, description="Bounding box coordinates")
 
     # Additional fields for other document types
     additional_fields: Optional[dict[str, str]] = Field(
@@ -221,7 +229,21 @@ class DataRecord(BaseModel):
         """Get field value by name with fallback to additional_fields."""
         if hasattr(self, field_name):
             return getattr(self, field_name) or ""
-        return self.additional_fields.get(field_name, "")
+        if self.additional_fields is not None:
+            return self.additional_fields.get(field_name, "")
+        return ""
+
+    def get_bbox_coordinates(self) -> tuple[int, int, int, int]:
+        """Parse bbox string and return coordinates as tuple."""
+        if self.bbox is None:
+            return (0, 0, 0, 0)
+        try:
+            parts = [int(x.strip()) for x in self.bbox.split(",")]
+            if len(parts) == 4:
+                return (parts[0], parts[1], parts[2], parts[3])
+        except (ValueError, AttributeError):
+            pass
+        return (0, 0, 0, 0)
 
 
 class GeneratorConfig(BaseModel):
@@ -457,9 +479,7 @@ def validate_config_file(config_path: str) -> ValidationResult:
         csv_path = data.get("csv_path", "")
 
         if templates_dir and not Path(templates_dir).exists():
-            result.add_error(
-                f"Templates directory does not exist: {templates_dir}"
-            )
+            result.add_error(f"Templates directory does not exist: {templates_dir}")
 
         if csv_path and not Path(csv_path).exists():
             result.add_error(f"CSV file does not exist: {csv_path}")

@@ -5,9 +5,10 @@ Generates word-level annotations from layout templates and field data.
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from PIL import Image, ImageDraw, ImageFont
+from PIL.ImageFont import FreeTypeFont
 
 from .utils import (
     BBox,
@@ -144,8 +145,8 @@ class WordRenderer:
         """
         try:
             # Load image
-            with Image.open(image_path) as img:
-                img = img.convert("RGB")
+            with Image.open(image_path) as img_file:
+                img = img_file.convert("RGB")
                 draw = ImageDraw.Draw(img)
                 img_width, img_height = img.size
 
@@ -163,12 +164,16 @@ class WordRenderer:
                 color_idx = 0
 
                 # Load font for labels
+                font: Union[FreeTypeFont, ImageFont.ImageFont]
                 try:
-                    if self.fonts_dir:
-                        font = select_random_font(self.fonts_dir, 16)
+                    selected_font = (
+                        select_random_font(self.fonts_dir, 16)
+                        if self.fonts_dir
+                        else None
+                    )
+                    if selected_font is not None:
+                        font = selected_font
                     else:
-                        font = None
-                    if font is None:
                         font = ImageFont.load_default()
                 except OSError:
                     font = ImageFont.load_default()
@@ -240,21 +245,14 @@ class WordRenderer:
         Returns:
             Validation results dictionary
         """
-        issues = []
-        stats = {
-            "total_annotations": len(annotations),
-            "unique_labels": len({ann["label"] for ann in annotations}),
-            "avg_words_per_label": {},
-            "bbox_issues": [],
-        }
+        issues: list[str] = []
+        bbox_issues: list[str] = []
 
         # Count words per label
-        label_counts = {}
+        label_counts: dict[str, int] = {}
         for ann in annotations:
             label = ann["label"]
             label_counts[label] = label_counts.get(label, 0) + 1
-
-        stats["avg_words_per_label"] = label_counts
 
         # Validate individual annotations
         for i, ann in enumerate(annotations):
@@ -294,8 +292,14 @@ class WordRenderer:
                 ) * max(0, min(bbox1.y2, bbox2.y2) - max(bbox1.y1, bbox2.y1))
 
                 if intersection_area > 0:
-                    stats["bbox_issues"].append(f"Overlapping bboxes: {i} and {j}")
+                    bbox_issues.append(f"Overlapping bboxes: {i} and {j}")
 
+        stats = {
+            "total_annotations": len(annotations),
+            "unique_labels": len({ann["label"] for ann in annotations}),
+            "avg_words_per_label": label_counts,
+            "bbox_issues": bbox_issues,
+        }
         return {"valid": len(issues) == 0, "issues": issues, "stats": stats}
 
     def create_xfund_entry(
@@ -337,6 +341,7 @@ class WordRenderer:
             Estimated bounding box
         """
         try:
+            font: Union[FreeTypeFont, ImageFont.ImageFont]
             if font_path and os.path.exists(font_path):
                 font = ImageFont.truetype(font_path, font_size)
             else:

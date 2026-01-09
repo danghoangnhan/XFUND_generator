@@ -297,7 +297,7 @@ class DocumentAugmenter:
         if random.random() < 0.2:
             # Apply slight blur to dark areas to simulate ink bleeding
             gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-            dark_mask = gray < 200
+            dark_mask = np.less(gray, 200)
 
             if dark_mask.any():
                 blurred = cv2.GaussianBlur(image, (3, 3), 0.5)
@@ -332,15 +332,15 @@ class LightweightAugmenter:
 
         # Brightness adjustment
         if random.random() < 0.3:
-            enhancer = ImageEnhance.Brightness(augmented)
+            brightness_enhancer = ImageEnhance.Brightness(augmented)
             factor = random.uniform(0.8, 1.2)
-            augmented = enhancer.enhance(factor)
+            augmented = brightness_enhancer.enhance(factor)
 
         # Contrast adjustment
         if random.random() < 0.3:
-            enhancer = ImageEnhance.Contrast(augmented)
+            contrast_enhancer = ImageEnhance.Contrast(augmented)
             factor = random.uniform(0.8, 1.2)
-            augmented = enhancer.enhance(factor)
+            augmented = contrast_enhancer.enhance(factor)
 
         # Slight blur
         if random.random() < 0.1:
@@ -429,23 +429,23 @@ def validate_augmentation_quality(
     Returns:
         Validation results
     """
-    issues = []
-    stats = {"annotations_lost": 0, "annotations_gained": 0, "bbox_shift_stats": []}
+    issues: list[str] = []
+    annotations_lost = 0
+    annotations_gained = 0
+    bbox_shift_stats: list[float] = []
 
     # Check annotation count changes
     orig_count = len(original_annotations)
     aug_count = len(augmented_annotations)
 
     if aug_count < orig_count:
-        stats["annotations_lost"] = orig_count - aug_count
-        if stats["annotations_lost"] > orig_count * 0.1:  # Lost more than 10%
-            issues.append(
-                f"Lost {stats['annotations_lost']} annotations during augmentation"
-            )
+        annotations_lost = orig_count - aug_count
+        if annotations_lost > orig_count * 0.1:  # Lost more than 10%
+            issues.append(f"Lost {annotations_lost} annotations during augmentation")
 
     elif aug_count > orig_count:
-        stats["annotations_gained"] = aug_count - orig_count
-        issues.append(f"Gained {stats['annotations_gained']} annotations (unexpected)")
+        annotations_gained = aug_count - orig_count
+        issues.append(f"Gained {annotations_gained} annotations (unexpected)")
 
     # Check bbox displacement (simplified matching by label)
     for orig_ann in original_annotations:
@@ -477,12 +477,12 @@ def validate_augmentation_quality(
                 (orig_center[0] - aug_center[0]) ** 2
                 + (orig_center[1] - aug_center[1]) ** 2
             )
-            stats["bbox_shift_stats"].append(displacement)
+            bbox_shift_stats.append(float(displacement))
 
     # Calculate average displacement
-    if stats["bbox_shift_stats"]:
-        avg_displacement = np.mean(stats["bbox_shift_stats"])
-        max_displacement = np.max(stats["bbox_shift_stats"])
+    if bbox_shift_stats:
+        avg_displacement = float(np.mean(bbox_shift_stats))
+        max_displacement = float(np.max(bbox_shift_stats))
 
         # Flag large displacements (more than 10% of target size)
         if avg_displacement > 0.1 * 1000:  # 10% of target_size
@@ -491,4 +491,9 @@ def validate_augmentation_quality(
         if max_displacement > 0.2 * 1000:  # 20% of target_size
             issues.append(f"Very large max bbox displacement: {max_displacement:.1f}")
 
+    stats = {
+        "annotations_lost": annotations_lost,
+        "annotations_gained": annotations_gained,
+        "bbox_shift_stats": bbox_shift_stats,
+    }
     return {"valid": len(issues) == 0, "issues": issues, "stats": stats}

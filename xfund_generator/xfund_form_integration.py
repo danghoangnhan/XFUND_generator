@@ -48,9 +48,13 @@ class XFUNDFormGenerator:
         template_name = Path(template_path).stem
 
         # Group data by template
-        template_data = {}
+        template_data: dict[str, str] = {}
         for record in data_records:
-            if record.template_name == template_name:
+            if (
+                record.template_name == template_name
+                and record.field_name is not None
+                and record.field_value is not None
+            ):
                 template_data[record.field_name] = record.field_value
 
         if not template_data:
@@ -100,6 +104,8 @@ class XFUNDFormGenerator:
 
         for record in data_records:
             if record.template_name != template_name:
+                continue
+            if record.field_name is None or record.field_value is None:
                 continue
 
             # Parse bounding box coordinates
@@ -235,7 +241,8 @@ class XFUNDFormGenerator:
 
             # Create linking
             for answer in nearby_answers:
-                question.linking.append([question.id, answer.id])
+                if question.id is not None and answer.id is not None:
+                    question.linking.append([question.id, answer.id])
 
     def _find_nearby_answers(
         self,
@@ -280,12 +287,17 @@ class XFUNDFormGenerator:
                 nearby_answers.append(answer)
 
         # Sort by distance and return closest ones
-        nearby_answers.sort(
-            key=lambda a: np.sqrt(
-                ((q_x1 + q_x2) / 2 - (a.box[0] + a.box[2]) / 2) ** 2
-                + ((q_y1 + q_y2) / 2 - (a.box[1] + a.box[3]) / 2) ** 2
+        def get_distance(a: XFUNDAnnotation) -> float:
+            if a.box is None:
+                return float("inf")
+            return float(
+                np.sqrt(
+                    ((q_x1 + q_x2) / 2 - (a.box[0] + a.box[2]) / 2) ** 2
+                    + ((q_y1 + q_y2) / 2 - (a.box[1] + a.box[3]) / 2) ** 2
+                )
             )
-        )
+
+        nearby_answers.sort(key=get_distance)
 
         return nearby_answers[:3]  # Return up to 3 closest answers
 
@@ -345,8 +357,10 @@ class XFUNDFormGenerator:
         ensure_dir_exists(annotations_dir)
 
         # Group records by template
-        template_groups = {}
+        template_groups: dict[str, list[DataRecord]] = {}
         for record in data_records:
+            if record.template_name is None:
+                continue
             if record.template_name not in template_groups:
                 template_groups[record.template_name] = []
             template_groups[record.template_name].append(record)

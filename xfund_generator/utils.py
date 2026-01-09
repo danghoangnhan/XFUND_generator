@@ -105,44 +105,56 @@ def split_text_bbox(
     if not words:
         return []
 
-    # Handle different bbox types
-    is_pydantic = isinstance(bbox, BBoxModel)
-
-    if len(words) == 1:
-        if is_pydantic:
+    # Handle BBoxModel type
+    if isinstance(bbox, BBoxModel):
+        if len(words) == 1:
             return [(words[0], bbox)]  # BBoxModel doesn't have add_jitter yet
-        else:
-            return [(words[0], bbox.add_jitter() if add_jitter else bbox)]
+
+        # Calculate proportional widths based on character count
+        total_chars = sum(len(word) for word in words)
+        word_proportions = [len(word) / total_chars for word in words]
+
+        # Distribute bboxes horizontally (assuming left-to-right layout)
+        word_bboxes: list[tuple[str, Union[BBox, BBoxModel]]] = []
+        current_x = bbox.x1
+        bbox_width = bbox.x2 - bbox.x1
+
+        for i, (word, proportion) in enumerate(zip(words, word_proportions)):
+            word_width = bbox_width * proportion
+            if i > 0:
+                current_x += bbox_width * 0.02  # 2% gap
+            word_bbox = BBoxModel(
+                x1=current_x, y1=bbox.y1, x2=current_x + word_width, y2=bbox.y2
+            )
+            word_bboxes.append((word, word_bbox))
+            current_x += word_width
+
+        return word_bboxes
+
+    # Handle legacy BBox type
+    if len(words) == 1:
+        return [(words[0], bbox.add_jitter() if add_jitter else bbox)]
 
     # Calculate proportional widths based on character count
     total_chars = sum(len(word) for word in words)
     word_proportions = [len(word) / total_chars for word in words]
 
     # Distribute bboxes horizontally (assuming left-to-right layout)
-    word_bboxes = []
+    word_bboxes_legacy: list[tuple[str, Union[BBox, BBoxModel]]] = []
     current_x = bbox.x1
     bbox_width = bbox.x2 - bbox.x1
 
     for i, (word, proportion) in enumerate(zip(words, word_proportions)):
         word_width = bbox_width * proportion
-
-        # Add small gaps between words
         if i > 0:
             current_x += bbox_width * 0.02  # 2% gap
-
-        if is_pydantic:
-            word_bbox = BBoxModel(
-                x1=current_x, y1=bbox.y1, x2=current_x + word_width, y2=bbox.y2
-            )
-        else:
-            word_bbox = BBox(current_x, bbox.y1, current_x + word_width, bbox.y2)
-            if add_jitter:
-                word_bbox = word_bbox.add_jitter()
-
-        word_bboxes.append((word, word_bbox))
+        legacy_bbox = BBox(current_x, bbox.y1, current_x + word_width, bbox.y2)
+        if add_jitter:
+            legacy_bbox = legacy_bbox.add_jitter()
+        word_bboxes_legacy.append((word, legacy_bbox))
         current_x += word_width
 
-    return word_bboxes
+    return word_bboxes_legacy
 
 
 def load_csv_data_as_models(csv_path: str) -> list[DataRecord]:
@@ -188,8 +200,8 @@ def load_csv_data_as_models(csv_path: str) -> list[DataRecord]:
 
 
 def split_text_into_words(
-    text: str, bbox: "BBoxModel", add_jitter: bool = True
-) -> list[tuple[str, "BBoxModel"]]:
+    text: str, bbox: BBox, add_jitter: bool = True
+) -> list[tuple[str, BBox]]:
     """Split text into words with proportional bounding boxes."""
     words = text.split()
 
@@ -204,7 +216,7 @@ def split_text_into_words(
     word_proportions = [len(word) / total_chars for word in words]
 
     # Distribute bboxes horizontally (assuming left-to-right layout)
-    word_bboxes = []
+    word_bboxes: list[tuple[str, BBox]] = []
     current_x = bbox.x1
     bbox_width = bbox.width()
 
@@ -247,7 +259,8 @@ def load_layout_json(json_path: str) -> dict[str, list[float]]:
         if not isinstance(coords, list) or len(coords) != 4:
             raise ValueError(f"Invalid bbox format for field '{field_name}': {coords}")
 
-    return layout_data
+    result: dict[str, list[float]] = layout_data
+    return result
 
 
 def get_available_fonts(fonts_dir: str) -> list[str]:
@@ -333,7 +346,8 @@ def load_csv_data(csv_path: str) -> list[dict[str, str]]:
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
     df = pd.read_csv(csv_path)
-    return df.to_dict("records")
+    result: list[dict[str, str]] = df.to_dict("records")
+    return result
 
 
 def generate_unique_id(index: int, prefix: str = "") -> str:
