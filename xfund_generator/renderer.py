@@ -265,9 +265,9 @@ class WordRenderer:
 
     def create_xfund_entry(
         self, entry_id: str, image_filename: str, annotations: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    ) -> XFUNDEntry:
         """
-        Create complete XFUND format entry.
+        Create complete XFUND format entry with Pydantic validation.
 
         Args:
             entry_id: Unique ID for the entry
@@ -275,13 +275,19 @@ class WordRenderer:
             annotations: List of word-level annotations
 
         Returns:
-            Complete XFUND format dictionary
+            Validated XFUNDEntry model
         """
-        return {
-            "id": entry_id,
-            "image": f"images/{image_filename}",
-            "annotations": annotations,
-        }
+        # Convert dict annotations to WordAnnotation models
+        word_annotations = [
+            WordAnnotation.from_dict(ann) if isinstance(ann, dict) else ann
+            for ann in annotations
+        ]
+
+        return XFUNDEntry(
+            id=entry_id,
+            image=f"images/{image_filename}",
+            annotations=word_annotations,
+        )
 
     def get_layout_fields(self) -> list[str]:
         """Get list of all fields defined in the layout."""

@@ -343,14 +343,14 @@ class XFUNDGenerator:
                     "error": f"Annotation validation failed: {validation_result.issues}",
                 }
 
-            # Step 5: Create XFUND entry
+            # Step 5: Create XFUND entry (now returns validated XFUNDEntry model)
             xfund_entry = renderer.create_xfund_entry(
                 entry_id, image_filename, annotations
             )
 
-            # Step 6: Save annotation
+            # Step 6: Save annotation (convert model to dict for JSON serialization)
             annotation_path = os.path.join(self.annotations_dir, f"{entry_id}.json")
-            save_xfund_annotation(xfund_entry, annotation_path)
+            save_xfund_annotation(xfund_entry.to_dict(), annotation_path)
 
             # Optional: Generate debug overlay
             if self.config.generate_debug_overlays:
@@ -364,7 +364,7 @@ class XFUNDGenerator:
                 "entry_id": entry_id,
                 "image_path": image_path,
                 "annotation_path": annotation_path,
-                "num_annotations": len(annotations),
+                "num_annotations": xfund_entry.annotation_count,
             }
 
         except Exception as e:
