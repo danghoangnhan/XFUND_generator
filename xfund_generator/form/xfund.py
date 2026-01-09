@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import model_validator
 
 from .base import BaseAnnotation, BaseDataset
@@ -8,25 +10,23 @@ class XFUNDAnnotation(BaseAnnotation):
     linking: list[list[int]] = []
 
 
-class XFUNDDataset(BaseDataset):
-    annotations: list[XFUNDAnnotation]
-
+class XFUNDDataset(BaseDataset[XFUNDAnnotation]):
     question_to_answer_ids: dict[int, list[int]] = {}
     question_to_answer_text: dict[str, list[str]] = {}
 
     @model_validator(mode="after")
-    def build_mappings(self):
+    def build_mappings(self) -> "XFUNDDataset":
         """Build question → answer mappings after model validation."""
         # Build question → answer id mapping
-        mapping_ids = {}
+        mapping_ids: dict[int, list[int]] = {}
         for ann in self.annotations:
-            if ann.label == "question" and ann.linking:
+            if ann.label == "question" and ann.linking and ann.id is not None:
                 mapping_ids[ann.id] = [link[1] for link in ann.linking]
         self.question_to_answer_ids = mapping_ids
 
         # Build question → answer text mapping
         id_to_text = {ann.id: ann.text for ann in self.annotations if ann.id}
-        mapping_text = {}
+        mapping_text: dict[str, list[str]] = {}
         for qid, a_ids in mapping_ids.items():
             if qid in id_to_text:
                 mapping_text[id_to_text[qid]] = [
@@ -46,7 +46,7 @@ class XFUNDDataset(BaseDataset):
                 flat_pairs.append((q, a))
         return flat_pairs
 
-    def _format_annotation_for_export(self, annotation: "XFUNDAnnotation") -> dict:
+    def _format_annotation_for_export(self, annotation: Any) -> dict[str, Any]:
         """Override to include XFUND-specific linking information."""
         base_format = super()._format_annotation_for_export(annotation)
         base_format["linking"] = annotation.linking

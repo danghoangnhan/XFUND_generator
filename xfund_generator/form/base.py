@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import Any, Generic, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -29,14 +29,18 @@ class BaseAnnotation(BaseModel):
     id: Optional[int] = None
 
 
+# TypeVar for annotation type
+T = TypeVar("T", bound=BaseAnnotation)
+
+
 # ----------------------
 # Base dataset
 # ----------------------
-class BaseDataset(BaseModel):
+class BaseDataset(BaseModel, Generic[T]):
     image_path: str = ""
-    annotations: list[BaseAnnotation]
+    annotations: list[T]  # type: ignore[valid-type]
 
-    def _format_annotation_for_export(self, annotation: BaseAnnotation) -> dict:
+    def _format_annotation_for_export(self, annotation: Any) -> dict[str, Any]:
         """
         Format a single annotation for JSON export.
         Override this method in subclasses to customize the export format.
