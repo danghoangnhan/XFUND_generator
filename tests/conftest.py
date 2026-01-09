@@ -2,19 +2,23 @@
 Pytest configuration and shared fixtures.
 """
 
-import pytest
-import sys
-import os
-from pathlib import Path
 import tempfile
-import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
-from xfund_generator.models import GeneratorConfig, DataRecord, BBoxModel, XFUNDEntity
-from xfund_generator.form import Word, BaseAnnotation
-from xfund_generator.form import XFUNDAnnotation, XFUNDDataset
-from xfund_generator.form import FUNSDAnnotation, FUNSDDataset
-from xfund_generator.form import WildReceiptAnnotation, WildReceiptDataset
+import pytest
+
+from xfund_generator.form import (
+    FUNSDAnnotation,
+    FUNSDDataset,
+    WildReceiptAnnotation,
+    WildReceiptDataset,
+    Word,
+    XFUNDAnnotation,
+    XFUNDDataset,
+)
+from xfund_generator.models import BBoxModel, GeneratorConfig
+
 
 @pytest.fixture
 def temp_dir():
@@ -34,7 +38,7 @@ def sample_config_data():
         "enable_augmentations": True,
         "augmentation_difficulty": "medium",
         "image_dpi": 300,
-        "target_size": 1000
+        "target_size": 1000,
     }
 
 
@@ -65,7 +69,7 @@ def sample_xfund_annotation(sample_word):
         text="Patient Name:",
         label="question",
         words=[sample_word],
-        linking=[[1, 2]]
+        linking=[[1, 2]],
     )
 
 
@@ -79,7 +83,7 @@ def sample_funsd_annotation(sample_word):
         label="question",
         words=[sample_word],
         key_id=1,
-        value_id=2
+        value_id=2,
     )
 
 
@@ -91,17 +95,25 @@ def sample_wildreceipt_annotation(sample_word):
         box=[10, 20, 100, 80],
         text="Total:",
         label="question",
-        words=[sample_word]
+        words=[sample_word],
     )
 
 
 @pytest.fixture
-def sample_datasets(sample_xfund_annotation, sample_funsd_annotation, sample_wildreceipt_annotation):
+def sample_datasets(
+    sample_xfund_annotation, sample_funsd_annotation, sample_wildreceipt_annotation
+):
     """Sample datasets for all formats."""
     return {
-        'xfund': XFUNDDataset(image_path="test.png", annotations=[sample_xfund_annotation]),
-        'funsd': FUNSDDataset(image_path="test.png", annotations=[sample_funsd_annotation]),
-        'wildreceipt': WildReceiptDataset(image_path="test.png", annotations=[sample_wildreceipt_annotation])
+        "xfund": XFUNDDataset(
+            image_path="test.png", annotations=[sample_xfund_annotation]
+        ),
+        "funsd": FUNSDDataset(
+            image_path="test.png", annotations=[sample_funsd_annotation]
+        ),
+        "wildreceipt": WildReceiptDataset(
+            image_path="test.png", annotations=[sample_wildreceipt_annotation]
+        ),
     }
 
 
@@ -111,16 +123,16 @@ def mock_file_operations(monkeypatch):
     mock_open = MagicMock()
     mock_exists = MagicMock(return_value=True)
     mock_isdir = MagicMock(return_value=True)
-    mock_listdir = MagicMock(return_value=['template1.docx', 'template2.docx'])
-    
-    monkeypatch.setattr('builtins.open', mock_open)
-    monkeypatch.setattr('os.path.exists', mock_exists)
-    monkeypatch.setattr('os.path.isdir', mock_isdir)
-    monkeypatch.setattr('os.listdir', mock_listdir)
-    
+    mock_listdir = MagicMock(return_value=["template1.docx", "template2.docx"])
+
+    monkeypatch.setattr("builtins.open", mock_open)
+    monkeypatch.setattr("os.path.exists", mock_exists)
+    monkeypatch.setattr("os.path.isdir", mock_isdir)
+    monkeypatch.setattr("os.listdir", mock_listdir)
+
     return {
-        'open': mock_open,
-        'exists': mock_exists,
-        'isdir': mock_isdir,
-        'listdir': mock_listdir
+        "open": mock_open,
+        "exists": mock_exists,
+        "isdir": mock_isdir,
+        "listdir": mock_listdir,
     }
