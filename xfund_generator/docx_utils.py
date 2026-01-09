@@ -5,6 +5,7 @@ Handles filling DOCX templates with CSV data and converting to PNG images.
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -22,6 +23,13 @@ if TYPE_CHECKING:
     from docx.document import Document as DocumentType
 
 logger = logging.getLogger(__name__)
+
+# Placeholder patterns for template field detection
+PLACEHOLDER_PATTERNS = [
+    r"\{\{([^}]+)\}\}",  # {{field}}
+    r"\{([^}]+)\}",  # {field}
+    r"\[([^\]]+)\]",  # [field]
+]
 
 
 class DocxProcessor:
@@ -358,17 +366,9 @@ def validate_docx_template(template_path: str) -> TemplateValidationResult:
 
         full_text = " ".join(all_text)
 
-        # Find potential placeholders
-        import re
-
-        placeholder_patterns = [
-            r"\{\{([^}]+)\}\}",  # {{field}}
-            r"\{([^}]+)\}",  # {field}
-            r"\[([^\]]+)\]",  # [field]
-        ]
-
+        # Find potential placeholders using module-level patterns
         placeholders = []
-        for pattern in placeholder_patterns:
+        for pattern in PLACEHOLDER_PATTERNS:
             matches = re.findall(pattern, full_text)
             placeholders.extend(matches)
 

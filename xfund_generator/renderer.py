@@ -12,6 +12,7 @@ from PIL.ImageFont import FreeTypeFont
 
 from .models import (
     AnnotationValidationResult,
+    WordAnnotation,
     validate_annotations as pydantic_validate_annotations,
 )
 from .utils import (
@@ -57,6 +58,8 @@ class WordRenderer:
         """
         Generate word-level XFUND annotations from field data.
 
+        Uses WordAnnotation Pydantic model internally for validation.
+
         Args:
             field_data: Dictionary of field names to text values
             image_size: Tuple of (width, height) of the image
@@ -65,7 +68,7 @@ class WordRenderer:
         Returns:
             List of XFUND annotation dictionaries
         """
-        annotations = []
+        annotations: list[WordAnnotation] = []
         img_width, img_height = image_size
 
         for field_name, text_value in field_data.items():
@@ -81,22 +84,24 @@ class WordRenderer:
             # Split text into words with individual bboxes
             word_bboxes = split_text_bbox(str(text_value), field_bbox, add_jitter)
 
-            # Convert to XFUND format
+            # Convert to XFUND format using WordAnnotation model
             for word_text, word_bbox in word_bboxes:
                 # Normalize bbox to XFUND scale
                 normalized_bbox = word_bbox.normalize(
                     img_width, img_height, self.target_size
                 )
 
-                annotation = {
-                    "text": word_text,
-                    "bbox": normalized_bbox.to_xfund_format(),
-                    "label": normalize_field_name(field_name),
-                }
+                # Create validated WordAnnotation
+                annotation = WordAnnotation(
+                    text=word_text,
+                    bbox=normalized_bbox.to_xfund_format(),
+                    label=normalize_field_name(field_name),
+                )
                 annotations.append(annotation)
 
         logger.info(f"Generated {len(annotations)} word annotations")
-        return annotations
+        # Convert to dicts for backward compatibility
+        return [ann.to_dict() for ann in annotations]
 
     def _get_field_bbox(self, field_name: str) -> Optional[BBox]:
         """
