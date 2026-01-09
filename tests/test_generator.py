@@ -227,9 +227,12 @@ class TestAugmentations:
         if hasattr(augmentations, "create_augmentation_config"):
             config = augmentations.create_augmentation_config("medium", "medical")
 
-            assert isinstance(config, dict)
-            assert "enable_noise" in config
-            assert "augmentation_probability" in config
+            # Returns AugmentationConfig Pydantic model
+            from xfund_generator.models import AugmentationConfig
+
+            assert isinstance(config, AugmentationConfig)
+            assert hasattr(config, "enable_noise")
+            assert hasattr(config, "augmentation_probability")
         else:
             pytest.skip("create_augmentation_config function not found")
 
@@ -306,11 +309,11 @@ class TestGeneratorIntegration:
             # Validate annotations exist
             assert len(annotations) > 0
 
-            # Basic validation
+            # Basic validation - annotations are WordAnnotation Pydantic models
             for ann in annotations:
-                assert "text" in ann
-                assert "bbox" in ann
-                assert "label" in ann
+                assert hasattr(ann, "text")
+                assert hasattr(ann, "bbox")
+                assert hasattr(ann, "label")
         else:
             pytest.skip("WordRenderer class not found")
 
