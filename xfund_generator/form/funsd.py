@@ -1,7 +1,7 @@
-from typing import List, Optional
-from .base import BaseDataset, BaseAnnotation, Word, LabelType
-from pydantic import BaseModel
-from json import dumps
+from typing import Optional
+
+from .base import BaseAnnotation, BaseDataset
+
 
 # ----------------------
 # FUNSD Annotation
@@ -10,13 +10,14 @@ class FUNSDAnnotation(BaseAnnotation):
     key_id: Optional[int] = None
     value_id: Optional[int] = None
 
+
 # ----------------------
 # FUNSD Dataset
 # ----------------------
 class FUNSDDataset(BaseDataset):
-    annotations: List[FUNSDAnnotation]
+    annotations: list[FUNSDAnnotation]
 
-    def _format_annotation_for_export(self, annotation: 'FUNSDAnnotation') -> dict:
+    def _format_annotation_for_export(self, annotation: "FUNSDAnnotation") -> dict:
         """Override to include FUNSD-specific key_id and value_id information."""
         base_format = super()._format_annotation_for_export(annotation)
         base_format["key_id"] = annotation.key_id
