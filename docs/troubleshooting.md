@@ -60,7 +60,7 @@ PermissionError: [Errno 13] Permission denied
 **Solution:**
 ```bash
 # Fix file permissions
-chmod +x src/generate_dataset.py
+chmod +x xfund_generator/generate_dataset.py
 
 # Fix directory permissions
 sudo chown -R $USER:$USER /path/to/XFUND_generator
@@ -105,7 +105,7 @@ ValidationError: 1 validation error for GeneratorConfig
 **Solution:**
 ```python
 # Validate configuration step by step
-from src.models import GeneratorConfig, validate_config_file
+from xfund_generator.models import GeneratorConfig, validate_config_file
 
 # Check configuration file
 result = validate_config_file("config.json")
@@ -115,7 +115,7 @@ if not result.is_valid:
         print(f"  - {error}")
 
 # Use default configuration as starting point
-from src.models import get_default_config
+from xfund_generator.models import get_default_config
 config = get_default_config()
 config.csv_path = "your_data.csv"  # Modify as needed
 ```
@@ -190,7 +190,7 @@ ValueError: Invalid bbox coordinates
 
 **Solution:**
 ```python
-from src.models import DataRecord
+from xfund_generator.models import DataRecord
 
 # Check data records individually
 import pandas as pd
@@ -397,14 +397,14 @@ with open('output/annotations/0001.json') as f:
 
 ```python
 # Test each component separately
-from src.models import GeneratorConfig
+from xfund_generator.models import GeneratorConfig
 
 # 1. Test configuration
 config = GeneratorConfig.from_json_file("config.json")
 print("✓ Config loaded")
 
 # 2. Test data loading
-from src.utils import load_csv_data_as_models
+from xfund_generator.utils import load_csv_data_as_models
 records = load_csv_data_as_models(config.csv_path)
 print(f"✓ Loaded {len(records)} records")
 
@@ -499,7 +499,7 @@ python demo_pydantic_integration.py
 ### Minimal Test
 
 ```python
-from src.models import GeneratorConfig
+from xfund_generator.models import GeneratorConfig
 config = GeneratorConfig(
     templates_dir="data/templates_docx",
     csv_path="data/csv/data.csv",

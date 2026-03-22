@@ -13,14 +13,14 @@ Pydantic has been added to provide:
 
 ## Key Components
 
-### 1. Models (`src/models.py`)
+### 1. Models (`xfund_generator/models.py`)
 
 The following Pydantic models are available:
 
 #### BBoxModel
 Validates bounding box coordinates:
 ```python
-from src.models import BBoxModel
+from xfund_generator.models import BBoxModel
 
 # Valid bbox
 bbox = BBoxModel(x1=10, y1=20, x2=100, y2=80)
@@ -31,7 +31,7 @@ print(bbox.to_xfund_format())  # Convert to XFUND integer format
 #### GeneratorConfig
 Validates and manages configuration:
 ```python
-from src.models import GeneratorConfig, DocumentType
+from xfund_generator.models import GeneratorConfig, DocumentType
 
 config = GeneratorConfig(
     templates_dir="data/templates_docx",
@@ -52,7 +52,7 @@ config = GeneratorConfig.from_json_file("my_config.json")
 #### DataRecord
 Validates CSV data records:
 ```python
-from src.models import DataRecord
+from xfund_generator.models import DataRecord
 
 record = DataRecord(
     hospital_name_text="Central Hospital",
@@ -67,7 +67,7 @@ hospital = record.get_field("hospital_name_text")
 #### XFUNDEntity & XFUNDAnnotation
 Validates XFUND annotations:
 ```python
-from src.models import XFUNDEntity, XFUNDAnnotation, BBoxModel
+from xfund_generator.models import XFUNDEntity, XFUNDAnnotation, BBoxModel
 
 bbox = BBoxModel(x1=10, y1=20, x2=100, y2=40)
 entity = XFUNDEntity(
@@ -83,7 +83,7 @@ annotation = XFUNDAnnotation(
 )
 ```
 
-### 2. Enhanced Utilities (`src/utils.py`)
+### 2. Enhanced Utilities (`xfund_generator/utils.py`)
 
 New utility functions that work with Pydantic models:
 
@@ -92,7 +92,7 @@ New utility functions that work with Pydantic models:
 - `load_config_with_validation()` - Load and validate configuration files
 - `validate_annotation_quality()` - Quality validation with detailed feedback
 
-### 3. Updated Generator (`src/generate_dataset.py`)
+### 3. Updated Generator (`xfund_generator/generate_dataset.py`)
 
 The main generator now supports:
 - Validated configuration input
@@ -105,8 +105,8 @@ The main generator now supports:
 ### Basic Usage
 
 ```python
-from src.models import GeneratorConfig, get_default_config
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig, get_default_config
+from xfund_generator.generate_dataset import XFUNDGenerator
 
 # Create validated config
 config = get_default_config()
@@ -127,7 +127,7 @@ print(f"Success rate: {result.success_rate:.1f}%")
 ### Configuration Management
 
 ```python
-from src.models import GeneratorConfig, validate_config_file
+from xfund_generator.models import GeneratorConfig, validate_config_file
 
 # Validate existing config
 validation = validate_config_file("config.json")
@@ -142,7 +142,7 @@ else:
 ### Working with Bounding Boxes
 
 ```python
-from src.models import BBoxModel
+from xfund_generator.models import BBoxModel
 
 # Create and validate bbox
 bbox = BBoxModel(x1=10, y1=20, x2=100, y2=80)
@@ -160,7 +160,7 @@ float_coords = bbox.to_list()          # [10.0, 20.0, 100.0, 80.0]
 Pydantic provides detailed validation errors:
 
 ```python
-from src.models import BBoxModel
+from xfund_generator.models import BBoxModel
 from pydantic import ValidationError
 
 try:
@@ -190,12 +190,12 @@ Supported document types:
 
 Create a default configuration:
 ```bash
-python -c "from src.models import get_default_config; get_default_config().to_json_file('config.json')"
+python -c "from xfund_generator.models import get_default_config; get_default_config().to_json_file('config.json')"
 ```
 
 Run with validation:
 ```bash
-python src/generate_dataset.py --config config_with_pydantic.json --validate-only
+python -m xfund_generator --config config_with_pydantic.json --validate-only
 ```
 
 ## Testing the Integration

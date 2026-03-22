@@ -142,7 +142,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 Test the installation:
 
 ```bash
-python -c "from src.models import GeneratorConfig; print('✅ Installation successful!')"
+python -c "from xfund_generator.models import GeneratorConfig; print('✅ Installation successful!')"
 ```
 
 ### Run Demo
@@ -192,7 +192,7 @@ mkdir -p data/csv data/templates_docx output
 3. **Test configuration**:
 ```bash
 python -c "
-from src.models import get_default_config
+from xfund_generator.models import get_default_config
 config = get_default_config()
 print('Default config created successfully')
 "
@@ -248,7 +248,7 @@ export PATH=$PATH:/path/to/libreoffice/bin
 #### Permission errors
 ```bash
 # Fix permissions on Linux/macOS
-chmod +x src/generate_dataset.py
+chmod +x xfund_generator/generate_dataset.py
 sudo chown -R $USER:$USER /path/to/XFUND_generator
 ```
 

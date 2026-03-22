@@ -24,8 +24,8 @@ python demo_pydantic_integration.py
 ### Step 2: Create Your First Dataset
 
 ```python
-from src.models import GeneratorConfig
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig
+from xfund_generator.generate_dataset import XFUNDGenerator
 
 # Create configuration
 config = GeneratorConfig(
@@ -87,7 +87,7 @@ City Clinic,Dr. Johnson,Diabetes
 Pydantic models ensure type safety and validation:
 
 ```python
-from src.models import GeneratorConfig, DocumentType
+from xfund_generator.models import GeneratorConfig, DocumentType
 
 config = GeneratorConfig(
     templates_dir="data/templates_docx",
@@ -104,7 +104,7 @@ config = GeneratorConfig(
 ### Example 1: Medical Forms
 
 ```python
-from src.models import GeneratorConfig, DocumentType, AugmentationDifficulty
+from xfund_generator.models import GeneratorConfig, DocumentType, AugmentationDifficulty
 
 # Medical document configuration
 config = GeneratorConfig(
@@ -147,16 +147,16 @@ result = generator.generate_dataset()
 
 ```bash
 # Generate with default settings
-python src/generate_dataset.py
+python -m xfund_generator
 
 # Use custom configuration
-python src/generate_dataset.py --config medical_config.json
+python -m xfund_generator --config medical_config.json
 
 # Validate configuration only
-python src/generate_dataset.py --config config.json --validate-only
+python -m xfund_generator --config config.json --validate-only
 
 # Enable debug mode
-python src/generate_dataset.py --config config.json --debug
+python -m xfund_generator --config config.json --debug
 ```
 
 ## Working with Templates
@@ -207,7 +207,7 @@ hospital_name_text,doctor_name_text,diagnose_text,doctor_comment_text
 The system automatically validates data:
 
 ```python
-from src.models import DataRecord
+from xfund_generator.models import DataRecord
 
 # This will validate the data
 record = DataRecord(
@@ -263,7 +263,7 @@ output/
 ### Minimal Configuration
 
 ```python
-from src.models import GeneratorConfig
+from xfund_generator.models import GeneratorConfig
 
 config = GeneratorConfig(
     templates_dir="data/templates_docx",
@@ -275,7 +275,7 @@ config = GeneratorConfig(
 ### Full Configuration
 
 ```python
-from src.models import GeneratorConfig, DocumentType, AugmentationDifficulty
+from xfund_generator.models import GeneratorConfig, DocumentType, AugmentationDifficulty
 
 config = GeneratorConfig(
     # Required paths
@@ -367,7 +367,7 @@ if not result.success:
 ### Built-in Validation
 
 ```python
-from src.utils import validate_annotation_quality
+from xfund_generator.utils import validate_annotation_quality
 
 # This happens automatically with strict_validation=True
 issues = validate_annotation_quality(annotation)
@@ -379,11 +379,11 @@ if issues:
 
 ```bash
 # Validate configuration
-python src/generate_dataset.py --config config.json --validate-only
+python -m xfund_generator --config config.json --validate-only
 
 # Check generation results
 python -c "
-from src.models import GeneratorConfig
+from xfund_generator.models import GeneratorConfig
 config = GeneratorConfig.from_json_file('medical_config.json')
 print(f'Config valid: {config}')
 "

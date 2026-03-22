@@ -19,7 +19,7 @@ General Clinic,Dr. Brown,Flu
 ### Step 2: Create Configuration
 
 ```python
-from src.models import GeneratorConfig, DocumentType
+from xfund_generator.models import GeneratorConfig, DocumentType
 
 config = GeneratorConfig(
     templates_dir="data/templates_docx",
@@ -37,7 +37,7 @@ config.to_json_file("simple_medical_config.json")
 ### Step 3: Generate Dataset
 
 ```python
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.generate_dataset import XFUNDGenerator
 
 generator = XFUNDGenerator(config)
 result = generator.generate_dataset()
@@ -60,7 +60,7 @@ Success rate: 100.0%
 ### Configuration with Augmentations
 
 ```python
-from src.models import GeneratorConfig, AugmentationDifficulty
+from xfund_generator.models import GeneratorConfig, AugmentationDifficulty
 
 config = GeneratorConfig(
     templates_dir="data/templates_docx",
@@ -139,7 +139,7 @@ for i, csv_file in enumerate(csv_files):
 
 ```bash
 # Generate with default configuration
-python src/generate_dataset.py \
+python -m xfund_generator \
   --templates-dir data/templates_docx \
   --csv-path data/csv/medical_simple.csv \
   --output-dir output/cli_generated
@@ -150,7 +150,7 @@ python src/generate_dataset.py \
 ```bash
 # Save configuration first
 python -c "
-from src.models import get_default_config
+from xfund_generator.models import get_default_config
 config = get_default_config()
 config.csv_path = 'data/csv/medical_simple.csv'
 config.output_dir = 'output/from_config'
@@ -158,14 +158,14 @@ config.to_json_file('example_config.json')
 "
 
 # Generate using config file
-python src/generate_dataset.py --config example_config.json
+python -m xfund_generator --config example_config.json
 ```
 
 ### Validation Only
 
 ```bash
 # Validate configuration without generating
-python src/generate_dataset.py \
+python -m xfund_generator \
   --config example_config.json \
   --validate-only
 ```
@@ -175,7 +175,7 @@ python src/generate_dataset.py \
 ### Create and Validate Bounding Boxes
 
 ```python
-from src.models import BBoxModel
+from xfund_generator.models import BBoxModel
 
 # Create bounding box
 bbox = BBoxModel(x1=50, y1=100, x2=300, y2=130)
@@ -202,7 +202,7 @@ Normalized: [62, 166, 375, 216]
 ### Validate CSV Data
 
 ```python
-from src.models import DataRecord
+from xfund_generator.models import DataRecord
 
 # Valid record
 record = DataRecord(
@@ -239,7 +239,7 @@ except ValidationError as e:
 ### Create Annotation Manually
 
 ```python
-from src.models import XFUNDEntity, XFUNDAnnotation, BBoxModel
+from xfund_generator.models import XFUNDEntity, XFUNDAnnotation, BBoxModel
 
 # Create entities
 entities = []
@@ -332,8 +332,8 @@ research_config = GeneratorConfig(
 ### Graceful Error Handling
 
 ```python
-from src.models import GeneratorConfig
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig
+from xfund_generator.generate_dataset import XFUNDGenerator
 from pydantic import ValidationError
 
 try:
@@ -371,8 +371,8 @@ Create a file `basic_example.py`:
 #!/usr/bin/env python3
 """Basic XFUND Generator example."""
 
-from src.models import GeneratorConfig, DocumentType
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig, DocumentType
+from xfund_generator.generate_dataset import XFUNDGenerator
 
 def main():
     # Simple configuration

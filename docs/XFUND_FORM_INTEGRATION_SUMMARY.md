@@ -16,7 +16,7 @@
    - Word-level annotation generation with proper bounding boxes
    - Batch processing for multiple templates
 
-3. **Enhanced Main Generator** (`src/generate_dataset.py`)
+3. **Enhanced Main Generator** (`xfund_generator/generate_dataset.py`)
    - Added `generate_dataset_with_forms()` method for form-based generation
    - Integrated `XFUNDFormGenerator` into main pipeline
    - Support for standardized XFUND output format

@@ -9,8 +9,8 @@ This document provides comprehensive examples for advanced use cases of the XFUN
 Handle multiple document templates with different layouts:
 
 ```python
-from src.models import GeneratorConfig
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig
+from xfund_generator.generate_dataset import XFUNDGenerator
 import json
 
 # Advanced configuration with multiple templates
@@ -48,7 +48,7 @@ Load configurations based on environment or parameters:
 
 ```python
 import os
-from src.models import GeneratorConfig, get_default_config
+from xfund_generator.models import GeneratorConfig, get_default_config
 
 def load_config_for_environment(env: str = None) -> GeneratorConfig:
     """Load configuration based on environment."""
@@ -88,7 +88,7 @@ generator = XFUNDGenerator(config)
 Implement custom validation logic:
 
 ```python
-from src.models import DataRecord, ValidationResult
+from xfund_generator.models import DataRecord, ValidationResult
 from typing import List
 import re
 
@@ -164,7 +164,7 @@ def bbox_overlap(bbox1, bbox2):
     return not (x2_1 < x1_2 or x2_2 < x1_1 or y2_1 < y1_2 or y2_2 < y1_1)
 
 # Usage example
-from src.utils import load_csv_data_as_models
+from xfund_generator.utils import load_csv_data_as_models
 
 records = load_csv_data_as_models("data/csv/medical_data.csv")
 
@@ -190,8 +190,8 @@ if bbox_validation.warnings:
 Generate multiple datasets with different configurations:
 
 ```python
-from src.models import GeneratorConfig
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig
+from xfund_generator.generate_dataset import XFUNDGenerator
 import json
 from pathlib import Path
 
@@ -301,8 +301,8 @@ Process datasets in parallel for better performance:
 
 ```python
 import concurrent.futures
-from src.models import GeneratorConfig
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig
+from xfund_generator.generate_dataset import XFUNDGenerator
 import time
 
 class ParallelProcessor:
@@ -413,7 +413,7 @@ Load data directly from databases:
 ```python
 import sqlite3
 import pandas as pd
-from src.models import DataRecord
+from xfund_generator.models import DataRecord
 from typing import List
 
 class DatabaseDataLoader:
@@ -494,7 +494,7 @@ Load data from REST APIs:
 
 ```python
 import requests
-from src.models import DataRecord
+from xfund_generator.models import DataRecord
 from typing import List, Dict
 import json
 
@@ -772,8 +772,8 @@ Handle large datasets with limited memory:
 ```python
 import gc
 import psutil
-from src.models import GeneratorConfig
-from src.generate_dataset import XFUNDGenerator
+from xfund_generator.models import GeneratorConfig
+from xfund_generator.generate_dataset import XFUNDGenerator
 import time
 
 class MemoryEfficientGenerator:
@@ -889,7 +889,7 @@ class MemoryEfficientGenerator:
         return temp_file.name
 
 # Usage example
-from src.utils import load_csv_data_as_models
+from xfund_generator.utils import load_csv_data_as_models
 
 # Load large dataset
 large_dataset = load_csv_data_as_models("data/csv/large_dataset.csv")

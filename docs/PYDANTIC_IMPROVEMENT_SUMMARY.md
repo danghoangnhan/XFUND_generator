@@ -5,7 +5,7 @@
 ### Changes Made
 
 #### 1. Created New Pydantic Model
-**File:** `src/models.py`
+**File:** `xfund_generator/models.py`
 - Added `TemplateValidationResult` class
 - Type-safe fields with validation
 - Helper methods for creating success/error results
@@ -50,7 +50,7 @@ return TemplateValidationResult.create_success(
 
 ```python
 # Import the function
-from src.docx_utils import validate_docx_template
+from xfund_generator.docx_utils import validate_docx_template
 
 # Use with type safety
 result = validate_docx_template("template.docx")
