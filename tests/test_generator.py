@@ -155,8 +155,8 @@ class TestRenderer:
         """Test WordRenderer initialization."""
         if hasattr(renderer, "WordRenderer"):
             renderer_obj = renderer.WordRenderer(layout_setup["layout_path"])
-            assert len(renderer_obj.layout_data) == 2
-            assert "hospital_name" in renderer_obj.layout_data
+            assert len(renderer_obj.layout.fields) == 2
+            assert "hospital_name" in renderer_obj.layout.fields
         else:
             pytest.skip("WordRenderer class not found")
 

@@ -1,0 +1,32 @@
+# Label classification rules for XFUND annotation.
+# Used by XFUNDFormGenerator._determine_label_type() to classify
+# field names as question, answer, or other.
+
+# If a field name contains any of these keywords, it is classified as "question"
+question_keywords:
+  - "question"
+  - "label"
+  - "prompt"
+  - "field_name"
+  - "key"
+
+# If a field name contains any of these keywords, it is classified as "answer"
+answer_keywords:
+  - "answer"
+  - "value"
+  - "response"
+  - "data"
+  - "content"
+
+# If a field name ends with one of these suffixes, it is classified as "question"
+question_suffixes:
+  - "_label"
+  - "_name"
+
+# If a field name ends with one of these suffixes, it is classified as "answer"
+answer_suffixes:
+  - "_value"
+  - "_data"
+
+# Default label when no keyword or suffix matches
+default_label: "other"

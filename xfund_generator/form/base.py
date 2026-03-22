@@ -49,7 +49,7 @@ class BaseDataset(BaseModel, Generic[T]):
             "box": annotation.box,
             "text": annotation.text,
             "label": annotation.label,
-            "words": [w.dict() for w in annotation.words] if annotation.words else [],
+            "words": [w.model_dump() for w in annotation.words] if annotation.words else [],
             "id": annotation.id,
         }
 

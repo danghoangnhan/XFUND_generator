@@ -1,4 +1,25 @@
-from pydantic import BaseModel, validator
+"""
+Legacy form models - DEPRECATED.
+
+This module is deprecated. Use the `xfund_generator.form` package instead:
+    - xfund_generator.form.base (BaseAnnotation, BaseDataset, Word)
+    - xfund_generator.form.xfund (XFUNDAnnotation, XFUNDDataset)
+    - xfund_generator.form.funsd (FUNSDAnnotation, FUNSDDataset)
+    - xfund_generator.form.wildreceipt (WildReceiptAnnotation, WildReceiptDataset)
+
+This file is kept only for backward compatibility and will be removed in v2.0.
+"""
+
+import warnings
+
+from pydantic import BaseModel, model_validator
+
+warnings.warn(
+    "xfund_generator.form (form.py) is deprecated. "
+    "Use xfund_generator.form.xfund, .funsd, or .wildreceipt instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 # Word-level annotation
@@ -25,25 +46,29 @@ class XFUNDData(BaseModel):
     question_to_answer_ids: dict[int, list[int]] = {}
     question_to_answer_text: dict[str, list[str]] = {}
 
-    @validator("question_to_answer_ids", pre=True, always=True)
-    def build_question_to_answer_ids(cls, _v, values):
-        mapping = {}
-        annotations = values.get("annotations", [])
-        for ann in annotations:
+    @model_validator(mode="after")
+    def build_mappings(self) -> "XFUNDData":
+        """Build question-to-answer mappings from annotations."""
+        id_mapping: dict[int, list[int]] = {}
+        id_to_text: dict[int, str] = {}
+
+        for ann in self.annotations:
+            id_to_text[ann.id] = ann.text
             if ann.label == "question":
                 linked_ids = [link[1] for link in ann.linking]
-                mapping[ann.id] = linked_ids
-        return mapping
+                id_mapping[ann.id] = linked_ids
 
-    @validator("question_to_answer_text", pre=True, always=True)
-    def build_question_to_answer_text(cls, _v, values):
-        annotations = values.get("annotations", [])
-        id_to_text = {ann.id: ann.text for ann in annotations}
-        q_to_a_ids = values.get("question_to_answer_ids", {})
-        mapping = {}
-        for qid, a_ids in q_to_a_ids.items():
-            mapping[id_to_text[qid]] = [id_to_text[aid] for aid in a_ids]
-        return mapping
+        self.question_to_answer_ids = id_mapping
+
+        text_mapping: dict[str, list[str]] = {}
+        for qid, a_ids in id_mapping.items():
+            q_text = id_to_text.get(qid, "")
+            text_mapping[q_text] = [
+                id_to_text.get(aid, "") for aid in a_ids
+            ]
+        self.question_to_answer_text = text_mapping
+
+        return self
 
     # ----------------------
     # Flattened list of QA pairs
@@ -54,45 +79,3 @@ class XFUNDData(BaseModel):
             for a_text in a_texts:
                 flat_pairs.append((q_text, a_text))
         return flat_pairs
-
-
-# ----------------------
-# Example usage
-# ----------------------
-annotations = [
-    Annotation(
-        box=[1794, 1748, 1985, 1823],
-        text="实施周期",
-        label="question",
-        words=[
-            Word(box=[1838, 1787, 1865, 1818], text="实"),
-            Word(box=[1865, 1786, 1892, 1819], text="施"),
-            Word(box=[1889, 1787, 1915, 1816], text="周"),
-            Word(box=[1913, 1785, 1944, 1816], text="期"),
-        ],
-        linking=[[1104, 1128]],
-        id=1104,
-    ),
-    Annotation(
-        box=[907, 1836, 1091, 1873],
-        text="普通高职在校生",
-        label="answer",
-        words=[
-            Word(box=[908, 1837, 921, 1871], text="普"),
-            Word(box=[927, 1837, 948, 1872], text="通"),
-            Word(box=[954, 1837, 975, 1872], text="高"),
-            Word(box=[981, 1837, 1002, 1873], text="职"),
-            Word(box=[1007, 1838, 1026, 1873], text="在"),
-            Word(box=[1032, 1838, 1053, 1873], text="校"),
-            Word(box=[1059, 1838, 1084, 1874], text="生"),
-        ],
-        linking=[],
-        id=1128,
-    ),
-]
-
-xfund_data = XFUNDData(annotations=annotations)
-
-print("Flat QA pairs:")
-for q, a in xfund_data.get_flat_qa_pairs():
-    print(f"Q: {q} → A: {a}")

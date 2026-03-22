@@ -1,0 +1,39 @@
+# Field name normalization mappings.
+# Maps standard field names to their known variants.
+# Used by normalize_field_name() to unify different naming conventions.
+#
+# To add mappings for your own document type, add new entries here:
+#   my_field:
+#     - "my field"
+#     - "my_field"
+#     - "alternate name"
+
+field_mappings:
+  hospital_name:
+    - "hospital name"
+    - "hospital_name"
+    - "clinic name"
+    - "medical center"
+  hospital_address:
+    - "hospital address"
+    - "hospital_address"
+    - "clinic address"
+  doctor_name:
+    - "doctor name"
+    - "doctor_name"
+    - "physician name"
+    - "dr name"
+  patient_name:
+    - "patient name"
+    - "patient_name"
+    - "patient"
+  diagnose:
+    - "diagnose"
+    - "diagnosis"
+    - "condition"
+  doctor_comment:
+    - "doctor comment"
+    - "doctor_comment"
+    - "prescription"
+    - "treatment"
+    - "medication"

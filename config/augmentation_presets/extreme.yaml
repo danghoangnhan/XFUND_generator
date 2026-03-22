@@ -1,0 +1,16 @@
+# Extreme augmentation preset - maximum transformations for stress testing
+difficulty: extreme
+document_type: medical
+target_size: 1000
+
+enable_noise: true
+enable_blur: true
+enable_brightness: true
+enable_rotation: true
+enable_perspective: true
+augmentation_probability: 1.0
+
+scanning_artifacts: true
+paper_effects: true
+ink_bleeding: true
+handwriting_variation: true

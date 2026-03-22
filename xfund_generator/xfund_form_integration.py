@@ -14,8 +14,8 @@ from PIL import Image
 
 from .docx_utils import process_docx_template
 from .form import Word, XFUNDAnnotation, XFUNDDataset
-from .models import DataRecord, GeneratorConfig
-from .utils import ensure_dir_exists
+from .models import BatchEntryResult, DataRecord, GeneratorConfig
+from .utils import ensure_dir_exists, load_yaml_config
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class XFUNDFormGenerator:
         """Initialize the XFUND form generator."""
         self.config = config
         self.annotation_id_counter = 1
+        self._label_config = load_yaml_config("label_keywords.yaml")
 
     def generate_xfund_from_template(
         self, template_path: str, data_records: list[DataRecord], output_dir: str
@@ -109,7 +110,14 @@ class XFUNDFormGenerator:
                 continue
 
             # Parse bounding box coordinates
-            bbox_coords = record.get_bbox_coordinates()
+            bbox_model = record.get_bbox_coordinates()
+            if bbox_model is None:
+                logger.warning(f"No bbox for field '{record.field_name}', skipping")
+                continue
+            bbox_coords = (
+                round(bbox_model.x1), round(bbox_model.y1),
+                round(bbox_model.x2), round(bbox_model.y2),
+            )
 
             # Validate bbox is within image bounds
             bbox_coords = self._validate_bbox_bounds(bbox_coords, image_size)
@@ -155,6 +163,7 @@ class XFUNDFormGenerator:
     def _determine_label_type(self, field_name: str) -> str:
         """
         Determine XFUND label type based on field name.
+        Rules are loaded from config/label_keywords.yaml.
 
         Args:
             field_name: Field identifier
@@ -165,23 +174,25 @@ class XFUNDFormGenerator:
         field_name_lower = field_name.lower()
 
         # Question indicators
-        question_keywords = ["question", "label", "prompt", "field_name", "key"]
+        question_keywords = self._label_config.get("question_keywords", [])
         if any(keyword in field_name_lower for keyword in question_keywords):
             return "question"
 
         # Answer indicators
-        answer_keywords = ["answer", "value", "response", "data", "content"]
+        answer_keywords = self._label_config.get("answer_keywords", [])
         if any(keyword in field_name_lower for keyword in answer_keywords):
             return "answer"
 
-        # Default based on common patterns
-        if field_name_lower.endswith("_label") or field_name_lower.endswith("_name"):
+        # Suffix-based classification
+        question_suffixes = self._label_config.get("question_suffixes", [])
+        if any(field_name_lower.endswith(s) for s in question_suffixes):
             return "question"
-        elif field_name_lower.endswith("_value") or field_name_lower.endswith("_data"):
+
+        answer_suffixes = self._label_config.get("answer_suffixes", [])
+        if any(field_name_lower.endswith(s) for s in answer_suffixes):
             return "answer"
 
-        # Default to "other" for ambiguous fields
-        return "other"
+        return self._label_config.get("default_label", "other")
 
     def _create_word_annotations(
         self, text: str, bbox_coords: tuple[int, int, int, int]
@@ -248,7 +259,7 @@ class XFUNDFormGenerator:
         self,
         question: XFUNDAnnotation,
         answers: list[XFUNDAnnotation],
-        max_distance: int = 100,
+        max_distance: int | None = None,
     ) -> list[XFUNDAnnotation]:
         """
         Find answer annotations that are spatially close to a question.
@@ -261,6 +272,9 @@ class XFUNDFormGenerator:
         Returns:
             List of nearby answer annotations
         """
+        if max_distance is None:
+            max_distance = self.config.max_linking_distance
+
         if not question.box:
             return []
 
@@ -299,7 +313,8 @@ class XFUNDFormGenerator:
 
         nearby_answers.sort(key=get_distance)
 
-        return nearby_answers[:3]  # Return up to 3 closest answers
+        max_answers = self.config.max_linked_answers
+        return nearby_answers[:max_answers]
 
     def save_xfund_annotation(
         self, xfund_dataset: XFUNDDataset, output_path: str, image_path: str
@@ -387,27 +402,23 @@ class XFUNDFormGenerator:
                 self.save_xfund_annotation(xfund_dataset, annotation_path, image_path)
 
                 # Record result
-                result = {
-                    "template_name": template_name,
-                    "image_path": image_path,
-                    "annotation_path": annotation_path,
-                    "annotations_count": len(xfund_dataset.annotations),
-                    "qa_pairs": len(xfund_dataset.get_flat_qa_pairs()),
-                    "status": "success",
-                }
-
-                results.append(result)
+                results.append(BatchEntryResult(
+                    template_name=template_name,
+                    status="success",
+                    image_path=image_path,
+                    annotation_path=annotation_path,
+                    annotations_count=len(xfund_dataset.annotations),
+                    qa_pairs=len(xfund_dataset.get_flat_qa_pairs()),
+                ))
                 logger.info(f"Successfully processed template: {template_name}")
 
             except Exception as e:
                 logger.error(f"Error processing template {template_name}: {e}")
-                results.append(
-                    {
-                        "template_name": template_name,
-                        "status": "failed",
-                        "error": str(e),
-                    }
-                )
+                results.append(BatchEntryResult(
+                    template_name=template_name,
+                    status="failed",
+                    error=str(e),
+                ))
 
         return results
 
@@ -466,7 +477,7 @@ def demo_xfund_form_generation():
     print("\n📊 Expected XFUND Output Structure:")
 
     # Create sample XFUND annotation manually for demonstration
-    from form import Word, XFUNDAnnotation, XFUNDDataset
+    from .form import Word, XFUNDAnnotation, XFUNDDataset
 
     sample_annotations = [
         XFUNDAnnotation(

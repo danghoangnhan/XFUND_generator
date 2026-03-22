@@ -322,19 +322,19 @@ class TestWordAnnotation:
 
     @pytest.mark.unit
     @pytest.mark.pydantic
-    def test_word_annotation_to_dict(self):
-        """Test converting annotation to dictionary."""
+    def test_word_annotation_model_dump(self):
+        """Test converting annotation to dictionary via model_dump."""
         ann = WordAnnotation(text="Test", bbox=[0, 0, 50, 50], label="test")
-        result = ann.to_dict()
+        result = ann.model_dump()
 
         assert result == {"text": "Test", "bbox": [0, 0, 50, 50], "label": "test"}
 
     @pytest.mark.unit
     @pytest.mark.pydantic
-    def test_word_annotation_from_dict(self):
-        """Test creating annotation from dictionary."""
+    def test_word_annotation_model_validate(self):
+        """Test creating annotation from dictionary via model_validate."""
         data = {"text": "World", "bbox": [100, 100, 200, 150], "label": "noun"}
-        ann = WordAnnotation.from_dict(data)
+        ann = WordAnnotation.model_validate(data)
 
         assert ann.text == "World"
         assert ann.bbox == [100, 100, 200, 150]
