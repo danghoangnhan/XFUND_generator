@@ -35,10 +35,17 @@ from .generate_dataset import XFUNDGenerator
 
 # Core models and configuration
 from .models import (
+    AugmentationConfig,
     AugmentationDifficulty,
+    AugmentationQualityResult,
+    BatchEntryResult,
     BBoxModel,
     DataRecord,
+    EntryResult,
     GeneratorConfig,
+    LayoutConfig,
+    LayoutField,
+    SetupValidationResult,
     TemplateValidationResult,
     XFUNDEntity,
 )
@@ -53,13 +60,19 @@ __all__ = [
     "__version__",
     "__author__",
     # Core models
-    "GeneratorConfig",
+    "AugmentationConfig",
+    "AugmentationDifficulty",
+    "AugmentationQualityResult",
+    "BatchEntryResult",
     "BBoxModel",
     "DataRecord",
-    "XFUNDEntity",
+    "EntryResult",
+    "GeneratorConfig",
+    "LayoutConfig",
+    "LayoutField",
+    "SetupValidationResult",
     "TemplateValidationResult",
-    "WordRenderer",
-    "AugmentationDifficulty",
+    "XFUNDEntity",
     # Form classes
     "BaseDataset",
     "XFUNDDataset",

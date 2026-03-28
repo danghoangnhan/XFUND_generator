@@ -1,0 +1,10 @@
+# Sample layout for medical documents.
+# Coordinates are [x1, y1, x2, y2] in pixels.
+# Customize these positions to match your template.
+
+hospital_name: [100, 50, 400, 100]
+hospital_address: [100, 120, 500, 170]
+doctor_name: [100, 200, 350, 250]
+patient_name: [400, 200, 650, 250]
+diagnose: [100, 300, 700, 400]
+doctor_comment: [100, 450, 700, 550]

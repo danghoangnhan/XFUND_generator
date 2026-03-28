@@ -46,11 +46,11 @@ class WordRenderer:
             fonts_dir: Optional directory containing fonts
             target_size: Target size for XFUND normalization (default 1000)
         """
-        self.layout_data = load_layout_json(layout_json_path)
+        self.layout = load_layout_json(layout_json_path)
         self.fonts_dir = fonts_dir
         self.target_size = target_size
 
-        logger.info(f"Loaded layout with {len(self.layout_data)} fields")
+        logger.info(f"Loaded layout with {len(self.layout.fields)} fields")
 
     def generate_word_annotations(
         self,
@@ -114,22 +114,25 @@ class WordRenderer:
             BBox object or None if field not found
         """
         # Try exact match first
-        if field_name in self.layout_data:
-            coords = self.layout_data[field_name]
-            return BBox(coords[0], coords[1], coords[2], coords[3])
+        bbox_model = self.layout.get_field_bbox(field_name)
+        if bbox_model:
+            return BBox(bbox_model.x1, bbox_model.y1, bbox_model.x2, bbox_model.y2)
 
         # Try normalized field name
         normalized_name = normalize_field_name(field_name)
-        if normalized_name in self.layout_data:
-            coords = self.layout_data[normalized_name]
-            return BBox(coords[0], coords[1], coords[2], coords[3])
+        bbox_model = self.layout.get_field_bbox(normalized_name)
+        if bbox_model:
+            return BBox(bbox_model.x1, bbox_model.y1, bbox_model.x2, bbox_model.y2)
 
         # Try field mapping variants
-        for layout_field in self.layout_data:
+        for layout_field in self.layout.fields:
             normalized_layout_field = normalize_field_name(layout_field)
             if normalized_layout_field == normalized_name:
-                coords = self.layout_data[layout_field]
-                return BBox(coords[0], coords[1], coords[2], coords[3])
+                bbox_model = self.layout.get_field_bbox(layout_field)
+                if bbox_model:
+                    return BBox(
+                        bbox_model.x1, bbox_model.y1, bbox_model.x2, bbox_model.y2
+                    )
 
         return None
 
@@ -251,7 +254,7 @@ class WordRenderer:
             AnnotationValidationResult with validation status and statistics
         """
         # Convert to dicts for the validation function
-        annotation_dicts = [ann.to_dict() for ann in annotations]
+        annotation_dicts = [ann.model_dump() for ann in annotations]
         return pydantic_validate_annotations(
             annotation_dicts,
             target_size=self.target_size,
@@ -280,7 +283,7 @@ class WordRenderer:
 
     def get_layout_fields(self) -> list[str]:
         """Get list of all fields defined in the layout."""
-        return list(self.layout_data.keys())
+        return self.layout.field_names()
 
     def estimate_text_bbox(
         self, text: str, font_size: int = 12, font_path: Optional[str] = None
@@ -380,15 +383,11 @@ def generate_layout_from_template(
 def create_sample_layout() -> dict[str, list[float]]:
     """
     Create a sample layout configuration for medical documents.
+    Loaded from config/sample_layouts/medical.yaml.
 
     Returns:
         Sample layout dictionary
     """
-    return {
-        "hospital_name": [100, 50, 400, 100],
-        "hospital_address": [100, 120, 500, 170],
-        "doctor_name": [100, 200, 350, 250],
-        "patient_name": [400, 200, 650, 250],
-        "diagnose": [100, 300, 700, 400],
-        "doctor_comment": [100, 450, 700, 550],
-    }
+    from .utils import load_yaml_config
+
+    return load_yaml_config("sample_layouts/medical.yaml")

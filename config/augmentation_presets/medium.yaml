@@ -1,0 +1,16 @@
+# Medium augmentation preset - balanced transformations (default)
+difficulty: medium
+document_type: medical
+target_size: 1000
+
+enable_noise: true
+enable_blur: true
+enable_brightness: true
+enable_rotation: true
+enable_perspective: true
+augmentation_probability: 0.7
+
+scanning_artifacts: false
+paper_effects: false
+ink_bleeding: false
+handwriting_variation: false

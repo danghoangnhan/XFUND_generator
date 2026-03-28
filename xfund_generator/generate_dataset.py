@@ -25,21 +25,26 @@ from .docx_utils import (
     validate_docx_template,
 )
 from .models import (
+    BBoxModel,
     DataRecord,
+    EntryResult,
     GenerationResult,
     GeneratorConfig,
+    SetupValidationResult,
     TemplateInfo,
     WordAnnotation,
     XFUNDAnnotation,
 )
 from .renderer import WordRenderer, create_sample_layout
 from .utils import (
+    create_xfund_entity_from_text,
     ensure_dir_exists,
     generate_unique_id,
     load_csv_data,
     load_csv_data_as_models,
     save_xfund_annotation,
     save_xfund_annotation_pydantic,
+    validate_annotation_quality,
     validate_image_size,
 )
 from .xfund_form_integration import XFUNDFormGenerator
@@ -136,17 +141,17 @@ class XFUNDGenerator:
                     data_record, template_info, i
                 )
 
-                if entry_result["success"]:
+                if entry_result.success:
                     result.generated_entries += 1
                     logger.info(
-                        f"Generated validated entry {i + 1}/{len(csv_records)}: {entry_result['entry_id']}"
+                        f"Generated validated entry {i + 1}/{len(csv_records)}: {entry_result.entry_id}"
                     )
                 else:
                     result.add_error(
-                        f"Entry {i}: {entry_result.get('error', 'Unknown error')}"
+                        f"Entry {i}: {entry_result.error or 'Unknown error'}"
                     )
                     logger.warning(
-                        f"Failed to generate entry {i + 1}: {entry_result.get('error')}"
+                        f"Failed to generate entry {i + 1}: {entry_result.error}"
                     )
 
             except Exception as e:
@@ -224,25 +229,15 @@ class XFUNDGenerator:
                 with open(layout_path) as f:
                     layout_data = json.load(f)
 
-                # Check if all required fields are present
-                required_fields = [
-                    "hospital_name",
-                    "hospital_address",
-                    "doctor_name",
-                    "patient_name",
-                    "diagnose",
-                    "doctor_command",
-                ]
-                missing_fields = [
-                    field for field in required_fields if field not in layout_data
-                ]
-
-                if missing_fields:
-                    logger.warning(
-                        f"Layout {layout_path} missing fields: {missing_fields}"
-                    )
+                # Validate layout has fields (layout fields are template-specific,
+                # not hardcoded to any particular document type)
+                if not layout_data:
+                    logger.warning(f"Layout {layout_path} has no fields defined")
                 else:
-                    logger.info(f"✓ Layout validated for {template_name}")
+                    logger.info(
+                        f"Layout validated for {template_name} "
+                        f"({len(layout_data)} fields)"
+                    )
 
             except (json.JSONDecodeError, FileNotFoundError) as e:
                 logger.error(f"Invalid layout file {layout_path}: {e}")
@@ -323,9 +318,9 @@ class XFUNDGenerator:
                 aug_validation = validate_augmentation_quality(
                     annotations, augmented_annotations
                 )
-                if not aug_validation["valid"] and self.config.strict_augmentation:
+                if not aug_validation.valid and self.config.strict_augmentation:
                     logger.warning(
-                        f"Augmentation quality issues for {entry_id}: {aug_validation['issues']}"
+                        f"Augmentation quality issues for {entry_id}: {aug_validation.issues}"
                     )
                     # Use original if strict mode is enabled
                     augmented_annotations = annotations
@@ -352,7 +347,7 @@ class XFUNDGenerator:
 
             # Step 6: Save annotation (convert model to dict for JSON serialization)
             annotation_path = os.path.join(self.annotations_dir, f"{entry_id}.json")
-            save_xfund_annotation(xfund_entry.to_dict(), annotation_path)
+            save_xfund_annotation(xfund_entry.model_dump(), annotation_path)
 
             # Optional: Generate debug overlay
             if self.config.generate_debug_overlays:
@@ -361,21 +356,20 @@ class XFUNDGenerator:
                 debug_path = os.path.join(debug_dir, f"{entry_id}_debug.png")
                 renderer.render_debug_overlay(image_path, annotations, debug_path)
 
-            return {
-                "success": True,
-                "entry_id": entry_id,
-                "image_path": image_path,
-                "annotation_path": annotation_path,
-                "num_annotations": xfund_entry.annotation_count,
-            }
+            return EntryResult.ok(
+                entry_id=entry_id,
+                image_path=image_path,
+                annotation_path=annotation_path,
+                annotation_count=xfund_entry.annotation_count,
+            )
 
         except Exception as e:
             logger.error(f"Error generating entry {entry_id}: {e}")
-            return {"success": False, "error": str(e)}
+            return EntryResult.fail(str(e), entry_id=entry_id)
 
     def _generate_single_entry_validated(
         self, data_record: DataRecord, template_info: TemplateInfo, index: int
-    ) -> dict[str, Any]:
+    ) -> EntryResult:
         """
         Generate single dataset entry with Pydantic validation.
 
@@ -385,7 +379,7 @@ class XFUNDGenerator:
             index: Numeric index for the entry
 
         Returns:
-            Dictionary with generation result and validation info
+            EntryResult with generation status and paths
         """
         entry_id = generate_unique_id(index)
 
@@ -445,9 +439,9 @@ class XFUNDGenerator:
                 aug_validation = validate_augmentation_quality(
                     annotations, augmented_annotations
                 )
-                if not aug_validation["valid"] and self.config.strict_augmentation:
+                if not aug_validation.valid and self.config.strict_augmentation:
                     logger.warning(
-                        f"Augmentation quality issues for {entry_id}: {aug_validation['issues']}"
+                        f"Augmentation quality issues for {entry_id}: {aug_validation.issues}"
                     )
                     # Use original if strict mode is enabled
                     augmented_annotations = annotations
@@ -474,8 +468,6 @@ class XFUNDGenerator:
 
             # Step 5: Quality validation
             if self.config.strict_validation:
-                from .utils import validate_annotation_quality
-
                 quality_issues = validate_annotation_quality(xfund_annotation)
                 if quality_issues:
                     logger.warning(f"Quality issues for {entry_id}: {quality_issues}")
@@ -484,17 +476,16 @@ class XFUNDGenerator:
             if self.config.generate_debug_overlays:
                 self._generate_debug_overlay(image_path, xfund_annotation, entry_id)
 
-            return {
-                "success": True,
-                "entry_id": entry_id,
-                "image_path": image_path,
-                "annotation_path": annotation_path,
-                "entity_count": len(xfund_annotation.form),
-            }
+            return EntryResult.ok(
+                entry_id=entry_id,
+                image_path=image_path,
+                annotation_path=annotation_path,
+                annotation_count=len(xfund_annotation.form),
+            )
 
         except Exception as e:
             logger.error(f"Error generating entry {entry_id}: {e}")
-            return {"success": False, "error": str(e)}
+            return EntryResult.fail(str(e), entry_id=entry_id)
 
     def _create_validated_annotation(
         self, annotations: list[WordAnnotation], image_path: str, entry_id: str
@@ -510,9 +501,6 @@ class XFUNDGenerator:
         Returns:
             Validated XFUNDAnnotation object
         """
-        from .models import BBoxModel
-        from .utils import create_xfund_entity_from_text
-
         entities = []
 
         for i, annotation in enumerate(annotations):
@@ -646,14 +634,15 @@ class XFUNDGenerator:
 
         return result
 
-    def validate_setup(self) -> dict[str, Any]:
+    def validate_setup(self) -> SetupValidationResult:
         """
         Validate generator setup and dependencies.
 
         Returns:
-            Validation results
+            SetupValidationResult with validation status
         """
-        issues = []
+        issues: list[str] = []
+        templates_found = 0
 
         # Check LibreOffice installation
         if not check_libreoffice_installed():
@@ -668,6 +657,7 @@ class XFUNDGenerator:
 
         # Check templates
         templates = self._find_templates()
+        templates_found = len(templates)
         if not templates:
             issues.append("No valid templates found")
 
@@ -681,30 +671,18 @@ class XFUNDGenerator:
         except Exception as e:
             issues.append(f"Failed to load CSV: {e}")
 
-        return {
-            "valid": len(issues) == 0,
-            "issues": issues,
-            "templates_found": len(templates) if "templates" in locals() else 0,
-        }
+        return SetupValidationResult(
+            valid=len(issues) == 0,
+            issues=issues,
+            templates_found=templates_found,
+        )
 
 
-def create_default_config() -> dict[str, Any]:
+def create_default_config() -> GeneratorConfig:
     """Create default configuration for dataset generation."""
-    return {
-        "templates_dir": "data/templates_docx",
-        "csv_path": "data/csv/data.csv",
-        "output_dir": "output",
-        "fonts_dir": "fonts/handwritten_fonts",
-        "image_dpi": 300,
-        "target_size": 1000,
-        "enable_augmentations": True,
-        "augmentation_difficulty": "medium",
-        "document_type": "medical",
-        "add_bbox_jitter": True,
-        "strict_validation": False,
-        "strict_augmentation": False,
-        "generate_debug_overlays": False,
-    }
+    from .models import get_default_config
+
+    return get_default_config()
 
 
 def main():
@@ -792,14 +770,14 @@ def main():
 
     # Validate setup
     validation_result = generator.validate_setup()
-    if not validation_result["valid"]:
+    if not validation_result.valid:
         logger.error("Setup validation failed:")
-        for issue in validation_result["issues"]:
+        for issue in validation_result.issues:
             logger.error(f"  - {issue}")
         return 1
 
     logger.info("Setup validation passed")
-    logger.info(f"Found {validation_result['templates_found']} template(s)")
+    logger.info(f"Found {validation_result.templates_found} template(s)")
 
     if args.validate_only:
         logger.info("Validation-only mode, exiting")

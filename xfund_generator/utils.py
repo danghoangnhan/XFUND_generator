@@ -6,15 +6,48 @@ Enhanced with Pydantic support for better type safety and validation.
 
 import glob
 import json
+import logging
 import os
 import random
+from pathlib import Path
 from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
+import yaml
 from PIL import Image, ImageFont
 
-from .models import BBoxModel, DataRecord, GeneratorConfig, XFUNDAnnotation, XFUNDEntity
+from .models import (
+    BBoxModel,
+    DataRecord,
+    GeneratorConfig,
+    LayoutConfig,
+    XFUNDAnnotation,
+    XFUNDEntity,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def get_config_dir() -> Path:
+    """Return the path to the config/ directory shipped with the package."""
+    return Path(__file__).resolve().parent.parent / "config"
+
+
+def load_yaml_config(filename: str) -> dict[str, Any]:
+    """Load a YAML file from the config/ directory.
+
+    Args:
+        filename: Relative path within config/ (e.g. "field_mappings.yaml")
+
+    Returns:
+        Parsed YAML as a dictionary
+    """
+    path = get_config_dir() / filename
+    if not path.exists():
+        raise FileNotFoundError(f"Config file not found: {path}")
+    with open(path, encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
 
 
 # Legacy BBox class for backward compatibility
@@ -187,7 +220,7 @@ def load_csv_data_as_models(csv_path: str) -> list[DataRecord]:
             record = DataRecord(**row_dict)
             records.append(record)
         except Exception as e:
-            print(f"Warning: Failed to validate row data: {e}")
+            logger.warning(f"Failed to validate row data: {e}")
             # Create with basic fields only
             record = DataRecord(
                 hospital_name_text=row_dict.get("hospital_name_text", ""),
@@ -202,43 +235,22 @@ def load_csv_data_as_models(csv_path: str) -> list[DataRecord]:
 def split_text_into_words(
     text: str, bbox: BBox, add_jitter: bool = True
 ) -> list[tuple[str, BBox]]:
-    """Split text into words with proportional bounding boxes."""
-    words = text.split()
+    """Split text into words with proportional bounding boxes.
 
-    if not words:
-        return []
+    .. deprecated::
+        Use :func:`split_text_bbox` instead, which supports both BBox and BBoxModel.
+    """
+    import warnings
 
-    if len(words) == 1:
-        return [(words[0], bbox.add_jitter() if add_jitter else bbox)]
-
-    # Calculate proportional widths based on character count
-    total_chars = sum(len(word) for word in words)
-    word_proportions = [len(word) / total_chars for word in words]
-
-    # Distribute bboxes horizontally (assuming left-to-right layout)
-    word_bboxes: list[tuple[str, BBox]] = []
-    current_x = bbox.x1
-    bbox_width = bbox.width()
-
-    for i, (word, proportion) in enumerate(zip(words, word_proportions)):
-        word_width = bbox_width * proportion
-
-        # Add small gaps between words
-        if i > 0:
-            current_x += bbox_width * 0.02  # 2% gap
-
-        word_bbox = BBox(current_x, bbox.y1, current_x + word_width, bbox.y2)
-
-        if add_jitter:
-            word_bbox = word_bbox.add_jitter()
-
-        word_bboxes.append((word, word_bbox))
-        current_x += word_width
-
-    return word_bboxes
+    warnings.warn(
+        "split_text_into_words() is deprecated. Use split_text_bbox() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return split_text_bbox(text, bbox, add_jitter=add_jitter)
 
 
-def load_layout_json(json_path: str) -> dict[str, list[float]]:
+def load_layout_json(json_path: str) -> LayoutConfig:
     """
     Load layout JSON file containing field bounding boxes.
 
@@ -246,21 +258,9 @@ def load_layout_json(json_path: str) -> dict[str, list[float]]:
         json_path: Path to the layout JSON file
 
     Returns:
-        Dictionary mapping field names to bbox coordinates [x1, y1, x2, y2]
+        LayoutConfig with validated field bounding boxes
     """
-    if not os.path.exists(json_path):
-        raise FileNotFoundError(f"Layout JSON not found: {json_path}")
-
-    with open(json_path, encoding="utf-8") as f:
-        layout_data = json.load(f)
-
-    # Validate layout format
-    for field_name, coords in layout_data.items():
-        if not isinstance(coords, list) or len(coords) != 4:
-            raise ValueError(f"Invalid bbox format for field '{field_name}': {coords}")
-
-    result: dict[str, list[float]] = layout_data
-    return result
+    return LayoutConfig.from_json_file(json_path)
 
 
 def get_available_fonts(fonts_dir: str) -> list[str]:
@@ -334,13 +334,23 @@ def load_csv_data(csv_path: str) -> list[dict[str, str]]:
     """
     Load CSV data as list of dictionaries.
 
+    .. deprecated::
+        Use :func:`load_csv_data_as_models` instead, which returns
+        validated ``list[DataRecord]``.
+
     Args:
         csv_path: Path to CSV file
 
     Returns:
         List of dictionaries, each representing a row
     """
-    import pandas as pd
+    import warnings
+
+    warnings.warn(
+        "load_csv_data() is deprecated. Use load_csv_data_as_models() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
@@ -579,9 +589,9 @@ def load_config_with_validation(config_path: str) -> GeneratorConfig:
         raise ValueError(error_msg)
 
     if validation_result.warnings:
-        print("Configuration warnings:")
+        logger.warning("Configuration warnings:")
         for warning in validation_result.warnings:
-            print(f"  - {warning}")
+            logger.warning(f"  - {warning}")
 
     return GeneratorConfig.from_json_file(config_path)
 
@@ -644,41 +654,42 @@ def calculate_iou(bbox1: BBox, bbox2: BBox) -> float:
     return intersection / union
 
 
-# Field mapping for common medical document fields
-FIELD_MAPPINGS = {
-    "hospital_name": [
-        "hospital name",
-        "hospital_name",
-        "clinic name",
-        "medical center",
-    ],
-    "hospital_address": ["hospital address", "hospital_address", "clinic address"],
-    "doctor_name": ["doctor name", "doctor_name", "physician name", "dr name"],
-    "patient_name": ["patient name", "patient_name", "patient"],
-    "diagnose": ["diagnose", "diagnosis", "condition"],
-    "doctor_comment": [
-        "doctor comment",
-        "doctor_comment",
-        "prescription",
-        "treatment",
-        "medication",
-    ],
-}
+# Lazy-loaded field mappings from config/field_mappings.yaml.
+_field_mappings_cache: dict[str, list[str]] | None = None
 
 
-def normalize_field_name(field_name: str) -> str:
+def _get_default_field_mappings() -> dict[str, list[str]]:
+    """Load default field mappings from YAML config (cached)."""
+    global _field_mappings_cache
+    if _field_mappings_cache is None:
+        data = load_yaml_config("field_mappings.yaml")
+        _field_mappings_cache = data.get("field_mappings", {})
+    return _field_mappings_cache
+
+
+def normalize_field_name(
+    field_name: str,
+    custom_mappings: dict[str, list[str]] | None = None,
+) -> str:
     """
     Normalize field name to standard format.
 
     Args:
         field_name: Original field name
+        custom_mappings: Optional custom field mappings. Falls back to
+            config/field_mappings.yaml if not provided.
 
     Returns:
         Normalized field name
     """
+    mappings = (
+        custom_mappings
+        if custom_mappings is not None
+        else _get_default_field_mappings()
+    )
     field_name = field_name.lower().strip()
 
-    for standard_name, variants in FIELD_MAPPINGS.items():
+    for standard_name, variants in mappings.items():
         if field_name in variants:
             return standard_name
 

@@ -4,12 +4,15 @@ Provides data validation, serialization, and type safety.
 """
 
 import json
+import logging
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Union
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentType(str, Enum):
@@ -70,7 +73,7 @@ class BBoxModel(BaseModel):
 
     def to_xfund_format(self) -> list[int]:
         """Convert to XFUND integer format [x1, y1, x2, y2]."""
-        return [int(self.x1), int(self.y1), int(self.x2), int(self.y2)]
+        return [round(self.x1), round(self.y1), round(self.x2), round(self.y2)]
 
     def normalize(
         self, img_width: int, img_height: int, target_size: int = 1000
@@ -81,6 +84,17 @@ class BBoxModel(BaseModel):
             y1=(self.y1 / img_height) * target_size,
             x2=(self.x2 / img_width) * target_size,
             y2=(self.y2 / img_height) * target_size,
+        )
+
+    def denormalize(
+        self, img_width: int, img_height: int, source_size: int = 1000
+    ) -> "BBoxModel":
+        """Convert from normalized (0-source_size) scale to image coordinates."""
+        return BBoxModel(
+            x1=(self.x1 / source_size) * img_width,
+            y1=(self.y1 / source_size) * img_height,
+            x2=(self.x2 / source_size) * img_width,
+            y2=(self.y2 / source_size) * img_height,
         )
 
     def area(self) -> float:
@@ -194,6 +208,14 @@ class AugmentationConfig(BaseModel):
         default=1000, ge=224, description="Target size for bbox normalization"
     )
 
+    # Bbox tracking during augmentation
+    min_visibility: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description="Minimum visible area ratio to keep a bbox after augmentation",
+    )
+
     @classmethod
     def from_yaml(cls, file_path: Union[str, Path]) -> "AugmentationConfig":
         """Load augmentation config from a YAML file.
@@ -241,7 +263,7 @@ class AugmentationConfig(BaseModel):
     ) -> "AugmentationConfig":
         """Create config from difficulty preset and document type.
 
-        This factory method replaces the old create_augmentation_config function.
+        Loads preset from config/augmentation_presets/{difficulty}.yaml.
 
         Args:
             difficulty: 'easy', 'medium', 'hard', or 'extreme'
@@ -250,110 +272,155 @@ class AugmentationConfig(BaseModel):
         Returns:
             AugmentationConfig with appropriate settings
         """
-        # Normalize inputs to enums
-        if isinstance(difficulty, str):
-            difficulty = AugmentationDifficulty(difficulty.lower())
+        from .utils import get_config_dir
+
+        # Normalize inputs
+        if isinstance(difficulty, AugmentationDifficulty):
+            difficulty_str = difficulty.value
+        else:
+            difficulty_str = difficulty.lower()
+
         if isinstance(document_type, str):
             document_type = DocumentType(document_type.lower())
 
-        # Base config
-        config_data: dict[str, Any] = {
-            "difficulty": difficulty,
-            "document_type": document_type,
-            "enable_noise": True,
-            "enable_blur": True,
-            "enable_brightness": True,
-            "enable_rotation": True,
-            "enable_perspective": True,
-            "augmentation_probability": 0.7,
-        }
+        # Try loading preset from YAML
+        preset_path = (
+            get_config_dir() / f"augmentation_presets/{difficulty_str}.yaml"
+        )
+        if preset_path.exists():
+            config = cls.from_yaml(preset_path)
+            config.document_type = document_type
+            config.difficulty = AugmentationDifficulty(difficulty_str)
+            return config
 
-        # Apply difficulty presets
-        if difficulty == AugmentationDifficulty.EASY:
-            config_data.update(
-                {
-                    "augmentation_probability": 0.3,
-                    "enable_perspective": False,
-                    "enable_rotation": False,
-                }
-            )
-        elif difficulty == AugmentationDifficulty.HARD:
-            config_data.update(
-                {
-                    "augmentation_probability": 0.9,
-                    "scanning_artifacts": True,
-                    "paper_effects": True,
-                    "ink_bleeding": True,
-                }
-            )
-        elif difficulty == AugmentationDifficulty.EXTREME:
-            config_data.update(
-                {
-                    "augmentation_probability": 1.0,
-                    "scanning_artifacts": True,
-                    "paper_effects": True,
-                    "ink_bleeding": True,
-                    "handwriting_variation": True,
-                }
-            )
-
-        # Apply document-type adjustments
-        if document_type == DocumentType.MEDICAL:
-            config_data.update({"enable_noise": True, "ink_bleeding": False})
-        elif document_type == DocumentType.FORM:
-            config_data.update({"handwriting_variation": True, "ink_bleeding": True})
-
-        return cls(**config_data)
-
-    def to_augmenter_kwargs(self) -> dict[str, Any]:
-        """Convert to kwargs dict for DocumentAugmenter.__init__.
-
-        Returns:
-            Dictionary of keyword arguments for DocumentAugmenter
-        """
-        return {
-            "target_size": self.target_size,
-            "enable_noise": self.enable_noise,
-            "enable_blur": self.enable_blur,
-            "enable_brightness": self.enable_brightness,
-            "enable_rotation": self.enable_rotation,
-            "enable_perspective": self.enable_perspective,
-            "augmentation_probability": self.augmentation_probability,
-        }
-
-    def to_manual_augment_kwargs(self) -> dict[str, Any]:
-        """Convert to kwargs dict for apply_manual_augmentations.
-
-        Returns:
-            Dictionary of manual augmentation options
-        """
-        return {
-            "scanning_artifacts": self.scanning_artifacts,
-            "paper_effects": self.paper_effects,
-            "ink_bleeding": self.ink_bleeding,
-            "handwriting_variation": self.handwriting_variation,
-        }
+        # Fallback to defaults if preset file not found
+        return cls(
+            difficulty=AugmentationDifficulty(difficulty_str),
+            document_type=document_type,
+        )
 
 
-class TemplateConfig(BaseModel):
-    """Configuration for document template."""
+class LayoutField(BaseModel):
+    """Single field position in a layout template."""
 
-    model_config = ConfigDict(validate_assignment=True)
+    x1: float
+    y1: float
+    x2: float
+    y2: float
 
-    template_path: str = Field(..., description="Path to template file")
-    template_type: str = Field(default="docx", description="Template file type")
-    fields: dict[str, Any] = Field(
-        default_factory=dict, description="Template field mappings"
-    )
-    layout_config: Optional[dict[str, Any]] = Field(
-        default=None, description="Layout configuration"
-    )
+    def to_bbox(self) -> "BBoxModel":
+        """Convert to BBoxModel."""
+        return BBoxModel(x1=self.x1, y1=self.y1, x2=self.x2, y2=self.y2)
 
-    @field_validator("template_path")
+
+class LayoutConfig(BaseModel):
+    """Layout configuration mapping field names to bounding boxes."""
+
+    fields: dict[str, LayoutField]
+
     @classmethod
-    def validate_template_path(cls, v):
-        """Validate template path - allows non-existent paths for testing."""
-        return str(Path(v))
+    def from_json_file(cls, path: str) -> "LayoutConfig":
+        """Load layout from a JSON file mapping field names to [x1,y1,x2,y2]."""
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"Layout JSON not found: {path}")
+        with open(p, encoding="utf-8") as f:
+            raw = json.load(f)
+        fields = {}
+        for name, coords in raw.items():
+            if not isinstance(coords, list) or len(coords) != 4:
+                raise ValueError(
+                    f"Invalid bbox format for field '{name}': {coords}"
+                )
+            fields[name] = LayoutField(
+                x1=coords[0], y1=coords[1], x2=coords[2], y2=coords[3]
+            )
+        return cls(fields=fields)
+
+    def get_field_bbox(self, name: str) -> Optional["BBoxModel"]:
+        """Get a field's bounding box by name, or None if not found."""
+        field = self.fields.get(name)
+        return field.to_bbox() if field else None
+
+    def field_names(self) -> list[str]:
+        """Return list of field names in this layout."""
+        return list(self.fields.keys())
+
+    def to_raw_dict(self) -> dict[str, list[float]]:
+        """Convert back to raw dict format for backward compatibility."""
+        return {
+            name: [f.x1, f.y1, f.x2, f.y2]
+            for name, f in self.fields.items()
+        }
+
+
+class EntryResult(BaseModel):
+    """Result of generating a single dataset entry."""
+
+    success: bool
+    entry_id: str = ""
+    image_path: str = ""
+    annotation_path: str = ""
+    annotation_count: int = 0
+    error: Optional[str] = None
+
+    @classmethod
+    def ok(
+        cls,
+        entry_id: str,
+        image_path: str,
+        annotation_path: str,
+        annotation_count: int = 0,
+    ) -> "EntryResult":
+        return cls(
+            success=True,
+            entry_id=entry_id,
+            image_path=image_path,
+            annotation_path=annotation_path,
+            annotation_count=annotation_count,
+        )
+
+    @classmethod
+    def fail(cls, error: str, entry_id: str = "") -> "EntryResult":
+        return cls(success=False, error=error, entry_id=entry_id)
+
+
+class SetupValidationResult(BaseModel):
+    """Result of validating generator setup."""
+
+    valid: bool
+    issues: list[str] = Field(default_factory=list)
+    templates_found: int = 0
+
+
+class AugmentationQualityStats(BaseModel):
+    """Statistics from augmentation quality validation."""
+
+    annotations_lost: int = 0
+    annotations_gained: int = 0
+    bbox_shift_stats: list[float] = Field(default_factory=list)
+
+
+class AugmentationQualityResult(BaseModel):
+    """Result of augmentation quality validation."""
+
+    valid: bool
+    issues: list[str] = Field(default_factory=list)
+    stats: AugmentationQualityStats = Field(
+        default_factory=AugmentationQualityStats
+    )
+
+
+class BatchEntryResult(BaseModel):
+    """Result of a single entry in batch generation."""
+
+    template_name: str
+    status: str  # "success" or "failed"
+    image_path: str = ""
+    annotation_path: str = ""
+    annotations_count: int = 0
+    qa_pairs: int = 0
+    error: Optional[str] = None
 
 
 class TemplateInfo(BaseModel):
@@ -405,17 +472,17 @@ class DataRecord(BaseModel):
             return self.additional_fields.get(field_name, "")
         return ""
 
-    def get_bbox_coordinates(self) -> tuple[int, int, int, int]:
-        """Parse bbox string and return coordinates as tuple."""
+    def get_bbox_coordinates(self) -> Optional[BBoxModel]:
+        """Parse bbox string and return as BBoxModel, or None if invalid."""
         if self.bbox is None:
-            return (0, 0, 0, 0)
+            return None
         try:
-            parts = [int(x.strip()) for x in self.bbox.split(",")]
+            parts = [float(x.strip()) for x in self.bbox.split(",")]
             if len(parts) == 4:
-                return (parts[0], parts[1], parts[2], parts[3])
+                return BBoxModel(x1=parts[0], y1=parts[1], x2=parts[2], y2=parts[3])
         except (ValueError, AttributeError):
             pass
-        return (0, 0, 0, 0)
+        return None
 
 
 class GeneratorConfig(BaseModel):
@@ -467,6 +534,18 @@ class GeneratorConfig(BaseModel):
     )
     generate_debug_overlays: bool = Field(
         default=False, description="Generate debug overlay images"
+    )
+
+    # Linking settings (for Q/A annotation pairing)
+    max_linking_distance: int = Field(
+        default=100,
+        ge=1,
+        description="Maximum pixel distance for Q/A linking",
+    )
+    max_linked_answers: int = Field(
+        default=3,
+        ge=1,
+        description="Maximum number of answers to link per question",
     )
 
     # Performance settings
@@ -620,14 +699,6 @@ class WordAnnotation(BaseModel):
         # Return True if bboxes overlap
         return not (x2_a <= x1_b or x2_b <= x1_a or y2_a <= y1_b or y2_b <= y1_a)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary format."""
-        return {"text": self.text, "bbox": self.bbox, "label": self.label}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WordAnnotation":
-        """Create from dictionary."""
-        return cls(text=data["text"], bbox=data["bbox"], label=data["label"])
 
 
 class XFUNDEntry(BaseModel):
@@ -659,22 +730,6 @@ class XFUNDEntry(BaseModel):
             raise ValueError("Image path cannot be empty")
         return v
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary format for JSON serialization."""
-        return {
-            "id": self.id,
-            "image": self.image,
-            "annotations": [ann.to_dict() for ann in self.annotations],
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "XFUNDEntry":
-        """Create from dictionary."""
-        annotations = [
-            WordAnnotation.from_dict(ann) if isinstance(ann, dict) else ann
-            for ann in data.get("annotations", [])
-        ]
-        return cls(id=data["id"], image=data["image"], annotations=annotations)
 
     @property
     def annotation_count(self) -> int:
@@ -818,8 +873,11 @@ def validate_config_file(config_path: str) -> ValidationResult:
         if fonts_dir and not Path(fonts_dir).exists():
             result.add_warning(f"Fonts directory does not exist: {fonts_dir}")
 
+    except json.JSONDecodeError as e:
+        result.add_error(f"Invalid JSON in configuration file: {e}")
     except Exception as e:
-        result.add_error(f"Error validating configuration: {str(e)}")
+        logger.error(f"Unexpected error validating configuration: {e}", exc_info=True)
+        result.add_error(f"Error validating configuration: {type(e).__name__}: {e}")
 
     return result
 
@@ -847,7 +905,7 @@ def validate_annotations(
     # Validate each annotation
     for i, ann in enumerate(annotations):
         try:
-            word_ann = WordAnnotation.from_dict(ann)
+            word_ann = WordAnnotation.model_validate(ann)
             valid_annotations.append(word_ann)
 
             # Count labels
@@ -887,20 +945,14 @@ def validate_annotations(
 
 
 def get_default_config() -> GeneratorConfig:
-    """Get default configuration for development/testing."""
-    return GeneratorConfig(
-        templates_dir="data/templates_docx",
-        csv_path="data/csv/data.csv",
-        output_dir="output",
-        fonts_dir="fonts/handwritten_fonts",
-        document_type=DocumentType.MEDICAL,
-        enable_augmentations=True,
-        augmentation_difficulty=AugmentationDifficulty.MEDIUM,
-        image_dpi=300,
-        target_size=1000,
-        add_bbox_jitter=True,
-        strict_validation=False,
-    )
+    """Get default configuration for development/testing.
+
+    Loads defaults from config/defaults.yaml.
+    """
+    from .utils import load_yaml_config
+
+    data = load_yaml_config("defaults.yaml")
+    return GeneratorConfig(**data)
 
 
 if __name__ == "__main__":
